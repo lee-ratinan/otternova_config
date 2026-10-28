@@ -1,4 +1,15 @@
 <?php
+if (!function_exists('listOtterSocialMedia')) {
+    function listOtterSocialMedia(): array
+    {
+        return [
+            'twitter-x' => getenv('OTTER_TWITTER'),
+            'facebook'  => getenv('OTTER_FACEBOOK'),
+            'instagram' => getenv('OTTER_INSTAGRAM'),
+            'linkedin'  => getenv('OTTER_LINKEDIN'),
+        ];
+    }
+}
 if (!function_exists("listSupportedLanguages")) {
     /**
      * @return string[]
@@ -110,7 +121,7 @@ if (!function_exists("listSupportedSubdivisions")) {
      */
     function listSupportedSubdivisions(string $countryCode): array
     {
-        $countryCode  = strtoupper($countryCode);
+        $countryCode = strtoupper($countryCode);
         $subdivisions = [
             // Southeast Asia
             "TH" => [

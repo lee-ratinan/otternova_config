@@ -56,7 +56,7 @@ if (!function_exists('formatPhoneNumber')) {
             if ($phoneUtil->isValidNumber($numberProto)) {
                 // NATIONAL format converts +813XXXX -> 03-XXXX-XXXX (handles all 400+ JP codes)
                 $countryCode = strtolower($phoneUtil->getRegionCodeForNumber($numberProto));
-                return '<span class="fi fi-' . $countryCode . '"></span> ' . $phoneUtil->format($numberProto, PhoneNumberFormat::NATIONAL);
+                return $phoneUtil->format($numberProto, PhoneNumberFormat::INTERNATIONAL);
             }
         } catch (NumberParseException $e) {
             // If parsing fails, log it or handle quietly

@@ -1,0 +1,93 @@
+#--------------------------------------------------------------------
+# Example Environment Configuration file
+#
+# This file can be used as a starting point for your own
+# custom .env files, and contains most of the possible settings
+# available in a default install.
+#
+# By default, all of the settings are commented out. If you want
+# to override the setting, you must un-comment it by removing the '#'
+# at the beginning of the line.
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# ENVIRONMENT
+#--------------------------------------------------------------------
+
+CI_ENVIRONMENT=development
+
+#--------------------------------------------------------------------
+# APP
+#--------------------------------------------------------------------
+
+app.baseURL=http://localhost:8301/
+# If you have trouble with `.`, you could also use `_`.
+# app_baseURL = ''
+# app.forceGlobalSecureRequests = false
+# app.CSPEnabled = false
+
+#--------------------------------------------------------------------
+# DATABASE
+#--------------------------------------------------------------------
+
+#database.default.hostname=otternova_sql
+#database.default.database=otter_db
+#database.default.username=otter_user
+#database.default.password=Qyn9140@Q=Q
+#database.default.DBDriver=MySQLi
+#database.default.port=3306
+
+# If you use MySQLi as tests, first update the values of Config\Database::$tests.
+# database.tests.hostname = localhost
+# database.tests.database = ci4_test
+# database.tests.username = root
+# database.tests.password = root
+# database.tests.DBDriver = MySQLi
+# database.tests.DBPrefix =
+# database.tests.charset = utf8mb4
+# database.tests.DBCollat = utf8mb4_general_ci
+# database.tests.port = 3306
+
+#--------------------------------------------------------------------
+# ENCRYPTION
+#--------------------------------------------------------------------
+
+# encryption.key =
+
+#--------------------------------------------------------------------
+# SESSION
+#--------------------------------------------------------------------
+
+# session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
+# session.savePath = null
+
+#--------------------------------------------------------------------
+# LOGGER
+#--------------------------------------------------------------------
+
+logger.threshold=4
+
+#--------------------------------------------------------------------
+# EMAILS
+#--------------------------------------------------------------------
+CONTACT_FORM_EMAIL=support@otternova.com
+NO_REPLY_EMAIL=no-reply@otternova.com
+
+#--------------------------------------------------------------------
+# DOMAINS
+#--------------------------------------------------------------------
+LINK_WWW=http://localhost:8301/
+LINK_API=http://localhost:8302/
+LINK_CLIENT=http://localhost:8303/
+LINK_ADMIN=http://localhost:8304/
+LINK_MART=http://localhost:8305/
+LINK_INTERNAL_API=http://host.docker.internal:8302/
+
+#--------------------------------------------------------------------
+# CONTACT
+#--------------------------------------------------------------------
+OTTER_EMAIL=support@otternova.com
+OTTER_LINKEDIN=https://www.linkedin.com/in/ratinanlee
+OTTER_INSTAGRAM=
+OTTER_FACEBOOK=
+OTTER_TWITTER=
