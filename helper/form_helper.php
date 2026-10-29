@@ -1,424 +1,584 @@
+
 <?php
 
-/**
- * app/Helpers/bootstrap_form_helper.php
- *
- * Load with:  helper('bootstrap_form');
- * or globally in BaseController:  protected $helpers = ['bootstrap_form'];
- *
- * Main function: bs_field($type, $name, $label, $opts = [])
- *
- * Value priority:  old() input (after failed validation)  >  'value' (update mode)  >  'default' (insert mode)
- *
- * Options ($opts):
- *   id             string       Defaults to $name (sanitised)
- *   default        mixed        Value used in insert mode
- *   value          mixed        Existing value used in update mode
- *   choices        array        [value => text] for select / radio / checkbox groups
- *                               (select supports optgroups: ['Group' => [value => text]])
- *   placeholder    string       Defaults to the label (select: "-- label --")
- *   required       bool
- *   multiple       bool         <select multiple>
- *   inline         bool         Inline radios / checkboxes
- *   checkbox_value string       Value of a single checkbox (default '1')
- *   help           string       Small help text below the input
- *   error          string       Error message; auto-read from session('errors')[$name] if omitted
- *   attrs          array        Extra attributes, e.g. ['rows' => 5, 'min' => 0, 'data-x' => 'y']
- *   wrapper_class  string       Default 'mb-3'
- *   label_class    string       Default 'form-label'
- *   input_class    string       Overrides the default control class
- */
-
-if (! function_exists('bs_attrs')) {
+if (! function_exists('form_builder')) {
     /**
-     * Turns ['name' => 'a', 'required' => true, 'disabled' => false] into ' name="a" required'
+     * Credit: ChatGPT
+     *
+     * Generate a Bootstrap 5 form from a field definition.
+     *
+     * @param string $title    Form title.
+     * @param string $action   Form submission URL.
+     * @param array  $fields   Field definitions.
+     * @param string $mode     'edit' or 'view'.
+     * @param array  $values   Existing field values, keyed by field name.
+     * @param string $subtitle Optional form subtitle.
+     *
+     * @return string Rendered HTML.
      */
-    function bs_attrs(array $attrs): string
-    {
+    function form_builder(
+        string $title,
+        string $action,
+        array $fields,
+        string $mode = 'edit',
+        array $values = [],
+        string $subtitle = ''
+    ): string {
+        if (! in_array($mode, ['edit', 'view'], true)) {
+            throw new InvalidArgumentException(
+                "Form mode must be 'edit' or 'view'."
+            );
+        }
+
+        $isView = $mode === 'view';
+
+        // Escape output for the appropriate HTML context.
+        $e = static fn ($value, string $context = 'html'): string
+        => esc((string) ($value ?? ''), $context);
+
+        // Generate a safe HTML ID from the field name or ID.
+        $makeId = static function (string $value): string {
+            $id = preg_replace('/[^a-zA-Z0-9_-]+/', '-', $value);
+            $id = trim($id ?? '', '-_');
+
+            return $id !== '' ? $id : 'field';
+        };
+
+        // Normalize a field's options into value/label pairs.
+        $normalizeOptions = static function (array $options): array {
+            $result = [];
+
+            foreach ($options as $key => $option) {
+                if (is_array($option)) {
+                    if (! array_key_exists('value', $option)) {
+                        continue;
+                    }
+
+                    $result[] = [
+                        'value' => $option['value'],
+                        'label' => $option['label']
+                            ?? $option['value'],
+                    ];
+                } else {
+                    // Also support ['eng' => 'Engineering'].
+                    $result[] = [
+                        'value' => $key,
+                        'label' => $option,
+                    ];
+                }
+            }
+
+            return $result;
+        };
+
+        // Read an existing value, preserving arrays for checkboxes.
+        $getValue = static function (
+            string $name,
+            array $values
+        ) {
+            return array_key_exists($name, $values)
+                ? $values[$name]
+                : '';
+        };
+
+        // Compare scalar values consistently.
+        $sameValue = static function ($a, $b): bool {
+            if (! is_scalar($a) || ! is_scalar($b)) {
+                return false;
+            }
+
+            return (string) $a === (string) $b;
+        };
+
+        // Render a readable value in view mode.
+        $displayValue = static function (
+            $value,
+            array $options = [],
+            bool $multiple = false
+        ) use ($e, $normalizeOptions, $sameValue): string {
+            $selectedValues = is_array($value)
+                ? $value
+                : [$value];
+
+            $labels = [];
+
+            foreach ($normalizeOptions($options) as $option) {
+                foreach ($selectedValues as $selected) {
+                    if ($sameValue($selected, $option['value'])) {
+                        $labels[] = (string) $option['label'];
+                        break;
+                    }
+                }
+            }
+
+            if ($options !== []) {
+                return $e(implode(', ', $labels));
+            }
+
+            if (is_array($value)) {
+                return $e(implode(', ', array_map(
+                    static fn ($item) => (string) $item,
+                    $value
+                )));
+            }
+
+            return $e($value);
+        };
+
         $html = '';
-        foreach ($attrs as $key => $val) {
-            if ($val === null || $val === false) {
-                continue;
-            }
-            $html .= $val === true
-                ? ' ' . $key
-                : ' ' . $key . '="' . esc((string) $val, 'attr') . '"';
+
+        // Only edit mode creates a submitting form.
+        if (! $isView) {
+            $html .= '<form action="' . $e($action, 'attr')
+                . '" method="post">';
         }
 
-        return $html;
-    }
-}
+        $html .= '<div class="card mb-3">';
+        $html .= '<div class="card-header">';
+        $html .= '<h5 class="card-title">'
+            . $e($title)
+            . '</h5>';
 
-if (! function_exists('bs_is_selected')) {
-    function bs_is_selected($current, $value): bool
-    {
-        if ($current === null) {
-            return false;
-        }
-        if (is_array($current)) {
-            return in_array((string) $value, array_map('strval', $current), true);
+        if ($subtitle !== '') {
+            $html .= '<p class="card-subtitle mb-0">'
+                . $e($subtitle)
+                . '</p>';
         }
 
-        return (string) $current === (string) $value;
-    }
-}
+        $html .= '</div>';
+        $html .= '<div class="card-body">';
 
-if (! function_exists('bs_options')) {
-    /**
-     * Renders <option> (and <optgroup>) tags.
-     */
-    function bs_options(array $choices, $current, string $indent = '        '): string
-    {
-        $html = '';
-        foreach ($choices as $value => $text) {
-            if (is_array($text)) {
-                $html .= $indent . '<optgroup label="' . esc((string) $value, 'attr') . '">' . "\n"
-                    . bs_options($text, $current, $indent . '    ')
-                    . $indent . "</optgroup>\n";
-                continue;
-            }
-            $html .= $indent . '<option value="' . esc((string) $value, 'attr') . '"'
-                . (bs_is_selected($current, $value) ? ' selected' : '')
-                . '>' . esc((string) $text) . "</option>\n";
+        if (! $isView && function_exists('csrf_field')) {
+            $html .= csrf_field();
         }
 
-        return $html;
-    }
-}
-
-if (! function_exists('bs_field')) {
-    function bs_field(string $type, string $name, string $label, array $opts = []): string
-    {
-        $o = array_merge([
-            'id'             => null,
-            'default'        => null,
-            'value'          => null,
-            'choices'        => [],
-            'placeholder'    => null,
-            'required'       => false,
-            'multiple'       => false,
-            'inline'         => false,
-            'checkbox_value' => '1',
-            'help'           => null,
-            'error'          => null,
-            'attrs'          => [],
-            'wrapper_class'  => 'mb-3',
-            'label_class'    => 'form-label',
-            'input_class'    => null,
-        ], $opts);
-
-        $type    = strtolower($type);
-        $baseKey = rtrim($name, '[]');                       // "tags[]" => "tags"
-        $id      = $o['id'] ?? trim(preg_replace('/[^A-Za-z0-9_-]+/', '_', $name), '_');
-
-        // ---- Current value: old input > existing value (update) > default (insert) ----
-        $current = $o['value'] ?? $o['default'];
-        if (function_exists('old') && ! in_array($type, ['password', 'file'], true)) {
-            $old = old($baseKey, null, false);               // false = don't HTML-escape here, we escape on output
-            if ($old !== null) {
-                $current = $old;
-            }
-        }
-
-        // ---- Validation error ----
-        $error = $o['error'];
-        if ($error === null) {
-            $errors = session('errors');
-            $error  = is_array($errors) ? ($errors[$baseKey] ?? null) : null;
-        }
-        $invalid = $error ? ' is-invalid' : '';
-
-        // ---- Hidden inputs: no wrapper, no label ----
-        if ($type === 'hidden') {
-            return '<input' . bs_attrs(array_merge([
-                    'type'  => 'hidden',
-                    'name'  => $name,
-                    'id'    => $id,
-                    'value' => is_scalar($current) ? (string) $current : null,
-                ], $o['attrs'])) . " />\n";
-        }
-
-        $placeholder = $o['placeholder'] ?? $label;
-        $isGroup     = false;   // radio / checkbox
-        $showLabel   = true;
-        $labelFor    = $id;
-
-        // =====================================================================
-        // Build the control
-        // =====================================================================
-        switch ($type) {
-
-            case 'textarea':
-                $control = '<textarea' . bs_attrs(array_merge([
-                        'name'        => $name,
-                        'id'          => $id,
-                        'class'       => trim(($o['input_class'] ?? 'form-control') . $invalid),
-                        'placeholder' => $placeholder,
-                        'required'    => $o['required'],
-                        'rows'        => 3,
-                    ], $o['attrs'])) . '>' . esc(is_scalar($current) ? (string) $current : '') . '</textarea>';
-                break;
-
-            case 'select':
-                $selectName = ($o['multiple'] && ! str_ends_with($name, '[]')) ? $name . '[]' : $name;
-                $control    = '<select' . bs_attrs(array_merge([
-                        'name'     => $selectName,
-                        'id'       => $id,
-                        'class'    => trim(($o['input_class'] ?? 'form-select') . $invalid),
-                        'required' => $o['required'],
-                        'multiple' => $o['multiple'],
-                    ], $o['attrs'])) . ">\n";
-
-                if (! $o['multiple']) {
-                    $emptyText = $o['placeholder'] ?? '-- ' . $label . ' --';
-                    $control  .= '        <option value=""'
-                        . (($current === null || $current === '') ? ' selected' : '')
-                        . '>' . esc($emptyText) . "</option>\n";
-                }
-                $control .= bs_options($o['choices'], $current) . '    </select>';
-                break;
-
-            case 'radio':
-            case 'checkbox':
-                $isGroup = true;
-                $single  = empty($o['choices']);             // one lone checkbox / switch
-                $choices = $single ? [$o['checkbox_value'] => $label] : $o['choices'];
-
-                $inputName = $name;
-                if ($type === 'checkbox' && ! $single && count($choices) > 1 && ! str_ends_with($name, '[]')) {
-                    $inputName .= '[]';
-                }
-
-                $control = '';
-                foreach ($choices as $val => $text) {
-                    $cid     = $single ? $id : $id . '_' . preg_replace('/[^A-Za-z0-9_-]+/', '_', (string) $val);
-                    $checked = $single
-                        ? ($current !== null && ! in_array($current, ['', 0, '0', false], true))
-                        : bs_is_selected($current, $val);
-
-                    $control .= '<div class="form-check' . ($o['inline'] ? ' form-check-inline' : '') . "\">\n"
-                        . '    <input' . bs_attrs(array_merge([
-                            'class'    => 'form-check-input' . $invalid,
-                            'type'     => $type,
-                            'name'     => $inputName,
-                            'id'       => $cid,
-                            'value'    => (string) $val,
-                            'checked'  => $checked,
-                            // "required" on every checkbox of a group would force all of them
-                            'required' => $o['required'] && ($type === 'radio' || $single),
-                        ], $o['attrs'])) . " />\n"
-                        . '    <label for="' . esc($cid, 'attr') . '" class="form-check-label">' . esc((string) $text) . "</label>\n"
-                        . "</div>\n";
-                }
-                $control = rtrim($control);
-
-                // A lone checkbox already carries its own label
-                $showLabel = ! $single;
-                $labelFor  = null;                            // group label doesn't point at one input
-                break;
-
-            default: // text, email, password, number, date, tel, url, search, file, range, color, ...
-                $class = $o['input_class'] ?? match ($type) {
-                    'range' => 'form-range',
-                    'color' => 'form-control form-control-color',
-                    default => 'form-control',
-                };
-
-                $attrs = [
-                    'type'     => $type,
-                    'name'     => $name,
-                    'id'       => $id,
-                    'class'    => trim($class . $invalid),
-                    'required' => $o['required'],
-                ];
-                if (! in_array($type, ['file', 'range', 'color'], true)) {
-                    $attrs['placeholder'] = $placeholder;
-                }
-                if (! in_array($type, ['password', 'file'], true)) {   // never echo passwords back
-                    $attrs['value'] = is_scalar($current) ? (string) $current : null;
-                }
-
-                $control = '<input' . bs_attrs(array_merge($attrs, $o['attrs'])) . ' />';
-                break;
-        }
-
-        // =====================================================================
-        // Assemble the wrapper
-        // =====================================================================
-        $pad = static fn (string $html): string => '    ' . str_replace("\n", "\n    ", $html);
-
-        $out = '<div class="' . esc($o['wrapper_class'], 'attr') . "\">\n";
-
-        if ($showLabel) {
-            $out .= '    <label'
-                . ($labelFor !== null ? ' for="' . esc($labelFor, 'attr') . '"' : '')
-                . ' class="' . esc($o['label_class'], 'attr') . '">'
-                . esc($label)
-                . ($o['required'] ? ' <span class="text-danger">*</span>' : '')
-                . "</label>\n";
-        }
-
-        $out .= $pad($control) . "\n";
-
-        if ($error) {
-            $out .= '    <div class="invalid-feedback' . ($isGroup ? ' d-block' : '') . '">'
-                . esc((string) $error) . "</div>\n";
-        }
-        if ($o['help']) {
-            $out .= '    <div class="form-text">' . esc((string) $o['help']) . "</div>\n";
-        }
-
-        return $out . "</div>\n";
-    }
-}
-
-/**
- * ---------------------------------------------------------------------------
- * Form wrapper: bs_form($title, $fields, $opts = [])
- * ---------------------------------------------------------------------------
- *
- * $fields is a list where each item is either
- *   - an array  [type, name, label, opts]   (passed to bs_field), or
- *   - a string  of raw HTML                 (e.g. a pre-built bs_field() call, a <hr>, a row layout)
- *
- * Options ($opts):
- *   id            string  Form id; also prefixes the button ids (default 'form')
- *   action        string  Form action URL (omitted if empty)
- *   method        string  get | post | put | patch | delete (put/patch/delete are sent as POST + _method)
- *   enctype       string  Auto 'multipart/form-data' if a file field exists
- *   mode          string  'add' or 'edit' (default 'add')
- *   save_label    string  Default: 'Add' (add mode) / 'Save Changes' (edit mode)
- *   save_icon     string  Font Awesome classes. Default: 'fa-solid fa-plus' / 'fa-solid fa-floppy-disk'
- *   reset_label   string  Default 'Reset'
- *   reset_icon    string  Default 'fa-solid fa-rotate-left'
- *   delete_label  string  Default 'Delete'
- *   delete_icon   string  Default 'fa-solid fa-trash'
- *   show_delete   bool    Default: true in edit mode, false in add mode
- *   show_reset    bool    Default true
- *   hidden        array   [name => value] extra hidden inputs (e.g. the record id)
- *   attrs         array   Extra <form> attributes
- *   card_class    string  Default 'card shadow-sm'
- *
- * Button ids (for your JavaScript): {id}_delete, {id}_reset, {id}_save
- */
-if (! function_exists('bs_form')) {
-    function bs_form(string $title, array $fields, array $opts = []): string
-    {
-        $o = array_merge([
-            'id'           => 'form',
-            'action'       => '',
-            'method'       => 'post',
-            'enctype'      => null,
-            'mode'         => 'add',
-            'save_label'   => null,
-            'save_icon'    => null,
-            'reset_label'  => 'Reset',
-            'reset_icon'   => 'fa-solid fa-rotate-left',
-            'delete_label' => 'Delete',
-            'delete_icon'  => 'fa-solid fa-trash',
-            'show_delete'  => null,
-            'show_reset'   => true,
-            'hidden'       => [],
-            'attrs'        => [],
-            'card_class'   => 'card shadow-sm',
-        ], $opts);
-
-        $isEdit = strtolower($o['mode']) === 'edit';
-        $id     = $o['id'];
-
-        $saveLabel  = $o['save_label'] ?? ($isEdit ? 'Save Changes' : 'Add');
-        $saveIcon   = $o['save_icon']  ?? ($isEdit ? 'fa-solid fa-floppy-disk' : 'fa-solid fa-plus');
-        $showDelete = $o['show_delete'] ?? $isEdit;
-
-        // ---- Method (spoof PUT / PATCH / DELETE through POST) ----
-        $method  = strtolower($o['method']);
-        $spoofed = null;
-        if (! in_array($method, ['get', 'post'], true)) {
-            $spoofed = strtoupper($method);
-            $method  = 'post';
-        }
-
-        // ---- Fields + auto multipart detection ----
-        $hasFile = false;
-        $body    = '';
         foreach ($fields as $field) {
-            if (is_string($field)) {
-                $body .= $field;
+            $name = (string) ($field['name'] ?? '');
+
+            if ($name === '') {
                 continue;
             }
-            if (strtolower((string) $field[0]) === 'file') {
-                $hasFile = true;
+
+            $label = (string) ($field['label'] ?? $name);
+            $type = strtolower((string) ($field['type'] ?? 'text'));
+            $id = $makeId((string) ($field['id'] ?? $name));
+            $value = $getValue($name, $values);
+            $required = ! empty($field['required']);
+            $help = (string) ($field['help'] ?? '');
+            $prefix = $field['prefix'] ?? '';
+            $suffix = $field['suffix'] ?? '';
+            $options = $field['options'] ?? [];
+            $options = is_array($options) ? $options : [];
+
+            $requiredAttr = $required ? ' required' : '';
+            $requiredClass = $required ? ' required' : '';
+
+            // Use an allowlist so arbitrary input types cannot be injected.
+            $allowedTypes = [
+                'text', 'tel', 'email', 'password', 'number',
+                'url', 'search', 'date', 'datetime-local',
+                'time', 'month', 'week', 'range', 'color',
+            ];
+
+            if (! in_array(
+                    $type,
+                    [
+                        'textarea', 'select', 'switch',
+                        'radio', 'checkboxes',
+                    ],
+                    true
+                ) && ! in_array($type, $allowedTypes, true)) {
+                $type = 'text';
             }
-            $body .= bs_field($field[0], $field[1], $field[2] ?? '', $field[3] ?? []);
+
+            $html .= '<div class="mb-3">';
+
+            /*
+             * Switch: Y/N.
+             */
+            if ($type === 'switch') {
+                if ($isView) {
+                    $checked = $sameValue($value, 'Y');
+
+                    $html .= '<div class="form-check form-switch">';
+                    $html .= '<input class="form-check-input"'
+                        . ' type="checkbox" disabled'
+                        . ($checked ? ' checked' : '')
+                        . '>';
+                    $html .= '<label class="form-check-label">'
+                        . $e($label)
+                        . '</label>';
+                    $html .= '<div class="form-text">'
+                        . ($checked ? 'Yes' : 'No')
+                        . '</div>';
+                    $html .= '</div>';
+                } else {
+                    $checked = $sameValue($value, 'Y');
+
+                    $html .= '<div class="form-check form-switch">';
+                    $html .= '<input type="hidden" name="'
+                        . $e($name, 'attr')
+                        . '" value="N">';
+
+                    $html .= '<input class="form-check-input"'
+                        . ' type="checkbox"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . ' value="Y"'
+                        . ($checked ? ' checked' : '')
+                        . $requiredAttr
+                        . '>';
+
+                    $html .= '<label class="form-check-label'
+                        . $requiredClass
+                        . '" for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+                    $html .= '</div>';
+                }
+
+                /*
+                 * Radio buttons and checkbox groups.
+                 */
+            } elseif (in_array($type, ['radio', 'checkboxes'], true)) {
+                $isCheckboxes = $type === 'checkboxes';
+
+                $selectedValues = is_array($value)
+                    ? $value
+                    : ($value !== '' ? [$value] : []);
+
+                $html .= '<fieldset class="border-0 p-0 m-0">';
+
+                $html .= '<legend class="form-label fs-6'
+                    . $requiredClass . '">'
+                    . $e($label)
+                    . '</legend>';
+
+                if ($isView) {
+                    $html .= '<div class="form-control-plaintext">';
+
+                    $html .= $displayValue(
+                        $selectedValues,
+                        $options,
+                        $isCheckboxes
+                    );
+
+                    $html .= '</div>';
+                } else {
+                    // A fieldset ID prefix prevents collisions between options.
+                    $optionIndex = 0;
+
+                    foreach ($normalizeOptions($options) as $option) {
+                        $optionId = $id . '-' . $optionIndex++;
+                        $checked = false;
+
+                        foreach ($selectedValues as $selected) {
+                            if ($sameValue($selected, $option['value'])) {
+                                $checked = true;
+                                break;
+                            }
+                        }
+
+                        $inputType = $isCheckboxes
+                            ? 'checkbox'
+                            : 'radio';
+
+                        $inputName = $isCheckboxes
+                            ? $name . '[]'
+                            : $name;
+
+                        $html .= '<div class="form-check mb-2">';
+
+                        $html .= '<input class="form-check-input"'
+                            . ' type="' . $inputType . '"'
+                            . ' id="' . $e($optionId, 'attr') . '"'
+                            . ' name="' . $e($inputName, 'attr') . '"'
+                            . ' value="' . $e($option['value'], 'attr') . '"'
+                            . ($checked ? ' checked' : '')
+                            . ($required && $optionIndex === 1
+                                ? ' required' : '')
+                            . '>';
+
+                        $html .= '<label class="form-check-label"'
+                            . ' for="' . $e($optionId, 'attr') . '">'
+                            . $e($option['label'])
+                            . '</label>';
+
+                        $html .= '</div>';
+                    }
+                }
+
+                $html .= '</fieldset>';
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+
+                /*
+                 * Select dropdown.
+                 */
+            } elseif ($type === 'select') {
+                $html .= '<div class="form-floating">';
+
+                if ($isView) {
+                    $html .= '<div class="form-control-plaintext">'
+                        . $displayValue($value, $options)
+                        . '</div>';
+                    $html .= '<label for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+                } else {
+                    $html .= '<select class="form-select"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . $requiredAttr
+                        . '>';
+
+                    if (empty($field['required'])) {
+                        $html .= '<option value="">Select '
+                            . $e($label)
+                            . '</option>';
+                    }
+
+                    foreach ($normalizeOptions($options) as $option) {
+                        $selected = $sameValue(
+                            $value,
+                            $option['value']
+                        );
+
+                        $html .= '<option'
+                            . ' value="' . $e($option['value'], 'attr') . '"'
+                            . ($selected ? ' selected' : '')
+                            . '>'
+                            . $e($option['label'])
+                            . '</option>';
+                    }
+
+                    $html .= '</select>';
+
+                    $html .= '<label for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+                }
+
+                $html .= '</div>';
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+
+                /*
+                 * Textarea.
+                 */
+            } elseif ($type === 'textarea') {
+                $height = max(60, (int) ($field['height'] ?? 120));
+
+                if ($isView) {
+                    $html .= '<label class="form-label"'
+                        . ' for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+
+                    $html .= '<div class="form-control-plaintext"'
+                        . ' style="white-space: pre-wrap;">'
+                        . $e($value)
+                        . '</div>';
+                } else {
+                    $html .= '<div class="form-floating">';
+
+                    $html .= '<textarea class="form-control"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . ' placeholder="' . $e($label, 'attr') . '"'
+                        . ' style="height: ' . $height . 'px;"'
+                        . $requiredAttr . '>'
+                        . $e($value)
+                        . '</textarea>';
+
+                    $html .= '<label for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+
+                    $html .= '</div>';
+                }
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+
+                /*
+                 * Inputs with prefix/suffix.
+                 */
+            } elseif ($prefix !== '' || $suffix !== '') {
+                $html .= '<label class="form-label'
+                    . $requiredClass . '"'
+                    . ' for="' . $e($id, 'attr') . '">'
+                    . $e($label)
+                    . '</label>';
+
+                if ($isView) {
+                    $html .= '<div class="form-control-plaintext">';
+
+                    $html .= $e($prefix)
+                        . $displayValue($value)
+                        . $e($suffix);
+
+                    $html .= '</div>';
+                } else {
+                    $html .= '<div class="input-group">';
+
+                    if ($prefix !== '') {
+                        $html .= '<span class="input-group-text">'
+                            . $e($prefix)
+                            . '</span>';
+                    }
+
+                    $html .= '<input class="form-control"'
+                        . ' type="' . $e($type, 'attr') . '"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . ' placeholder="' . $e($label, 'attr') . '"'
+                        . ' value="' . $e($value, 'attr') . '"'
+                        . $requiredAttr;
+
+                    foreach (['min', 'max', 'step', 'maxlength', 'minlength'] as $attr) {
+                        if (isset($field[$attr])) {
+                            $html .= ' ' . $attr . '="'
+                                . $e($field[$attr], 'attr') . '"';
+                        }
+                    }
+
+                    $html .= '>';
+
+                    if ($suffix !== '') {
+                        $html .= '<span class="input-group-text">'
+                            . $e($suffix)
+                            . '</span>';
+                    }
+
+                    $html .= '</div>';
+                }
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+
+                /*
+                 * Range, color, and other non-floating inputs.
+                 */
+            } elseif (in_array($type, ['range', 'color'], true)) {
+                $html .= '<label class="form-label'
+                    . $requiredClass . '"'
+                    . ' for="' . $e($id, 'attr') . '">'
+                    . $e($label)
+                    . '</label>';
+
+                if ($isView) {
+                    $html .= '<div class="form-control-plaintext">'
+                        . $displayValue($value)
+                        . '</div>';
+                } else {
+                    $html .= '<input class="form-control"'
+                        . ' type="' . $e($type, 'attr') . '"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . ' value="' . $e($value, 'attr') . '"'
+                        . $requiredAttr;
+
+                    foreach (['min', 'max', 'step'] as $attr) {
+                        if (isset($field[$attr])) {
+                            $html .= ' ' . $attr . '="'
+                                . $e($field[$attr], 'attr') . '"';
+                        }
+                    }
+
+                    $html .= '>';
+                }
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+
+                /*
+                 * Standard text-like inputs.
+                 */
+            } else {
+                $html .= '<div class="form-floating">';
+
+                if ($isView) {
+                    // Never expose a stored password in view mode.
+                    $display = $type === 'password' && $value !== ''
+                        ? '••••••'
+                        : $value;
+
+                    $html .= '<div class="form-control-plaintext">'
+                        . $e($display)
+                        . '</div>';
+
+                    $html .= '<label for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+                } else {
+                    $html .= '<input class="form-control"'
+                        . ' type="' . $e($type, 'attr') . '"'
+                        . ' id="' . $e($id, 'attr') . '"'
+                        . ' name="' . $e($name, 'attr') . '"'
+                        . ' placeholder="' . $e($label, 'attr') . '"'
+                        . ' value="' . $e($value, 'attr') . '"'
+                        . $requiredAttr;
+
+                    foreach (['min', 'max', 'step', 'maxlength', 'minlength'] as $attr) {
+                        if (isset($field[$attr])) {
+                            $html .= ' ' . $attr . '="'
+                                . $e($field[$attr], 'attr') . '"';
+                        }
+                    }
+
+                    $html .= '>';
+
+                    $html .= '<label class="'
+                        . trim($requiredClass)
+                        . '" for="' . $e($id, 'attr') . '">'
+                        . $e($label)
+                        . '</label>';
+                }
+
+                $html .= '</div>';
+
+                if ($help !== '') {
+                    $html .= '<div class="form-text">'
+                        . $e($help)
+                        . '</div>';
+                }
+            }
+
+            $html .= '</div>';
         }
 
-        $pad = static fn (string $html, int $n): string =>
-            str_repeat('    ', $n) . str_replace("\n", "\n" . str_repeat('    ', $n), rtrim($html));
-
-        // ---- <form> open tag ----
-        $formAttrs = array_merge([
-            'id'      => $id,
-            'action'  => $o['action'] ?: null,
-            'method'  => $method,
-            'enctype' => $o['enctype'] ?? ($hasFile ? 'multipart/form-data' : null),
-        ], $o['attrs']);
-
-        $out = '<form' . bs_attrs($formAttrs) . ">\n";
-
-        // ---- Hidden inputs: CSRF, method spoofing, user supplied ----
-        $hidden = '';
-        if ($method === 'post' && function_exists('csrf_field')) {
-            $hidden .= csrf_field() . "\n";
-        }
-        if ($spoofed !== null) {
-            $hidden .= '<input type="hidden" name="_method" value="' . esc($spoofed, 'attr') . "\" />\n";
-        }
-        foreach ($o['hidden'] as $hName => $hValue) {
-            $hidden .= '<input' . bs_attrs(['type' => 'hidden', 'name' => $hName, 'value' => (string) $hValue]) . " />\n";
-        }
-        if ($hidden !== '') {
-            $out .= $pad($hidden, 1) . "\n";
+        if (! $isView) {
+            $html .= '<div class="mb-3 text-end">';
+            $html .= '<button type="submit"'
+                . ' class="btn btn-outline-primary">Save</button>';
+            $html .= '</div>';
         }
 
-        // ---- Card ----
-        $out .= '    <div class="' . esc($o['card_class'], 'attr') . "\">\n";
+        $html .= '</div>'; // card-body
+        $html .= '</div>'; // card
 
-        if ($title !== '') {
-            $out .= '        <div class="card-header">' . "\n"
-                . '            <h5 class="card-title mb-0">' . esc($title) . "</h5>\n"
-                . "        </div>\n";
+        if (! $isView) {
+            $html .= '</form>';
         }
 
-        $out .= "        <div class=\"card-body\">\n" . $pad($body, 3) . "\n        </div>\n";
-
-        // ---- Footer: delete (left) | reset + save (right) ----
-        $btn = static fn (string $icon, string $label): string =>
-            '<i class="' . esc($icon, 'attr') . ' me-1"></i> ' . esc($label);
-
-        $out .= "        <div class=\"card-footer d-flex justify-content-between align-items-center\">\n";
-
-        // Left: delete
-        $out .= "            <div>\n";
-        if ($showDelete) {
-            $out .= '                <button type="button" id="' . esc($id, 'attr') . '_delete" class="btn btn-danger">'
-                . $btn($o['delete_icon'], $o['delete_label']) . "</button>\n";
-        }
-        $out .= "            </div>\n";
-
-        // Right: reset + save
-        $out .= "            <div class=\"d-flex gap-2\">\n";
-        if ($o['show_reset']) {
-            $out .= '                <button type="reset" id="' . esc($id, 'attr') . '_reset" class="btn btn-outline-secondary">'
-                . $btn($o['reset_icon'], $o['reset_label']) . "</button>\n";
-        }
-        $out .= '                <button type="submit" id="' . esc($id, 'attr') . '_save" class="btn btn-primary">'
-            . $btn($saveIcon, $saveLabel) . "</button>\n";
-        $out .= "            </div>\n";
-        $out .= "        </div>\n";
-
-        $out .= "    </div>\n";
-        $out .= "</form>\n";
-
-        return $out;
+        return $html;
     }
 }
