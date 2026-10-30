@@ -1,17 +1,39 @@
 <?php
 if (!function_exists('listOtterSocialMedia')) {
+    /**
+     * Return OtterNova’s Social Media accounts
+     * @return array
+     */
     function listOtterSocialMedia(): array
     {
         return [
-            'twitter-x' => getenv('OTTER_TWITTER'),
-            'facebook'  => getenv('OTTER_FACEBOOK'),
-            'instagram' => getenv('OTTER_INSTAGRAM'),
-            'linkedin'  => getenv('OTTER_LINKEDIN'),
+            "twitter-x" => getenv("OTTER_TWITTER"),
+            "facebook"  => getenv("OTTER_FACEBOOK"),
+            "instagram" => getenv("OTTER_INSTAGRAM"),
+            "linkedin"  => getenv("OTTER_LINKEDIN"),
+        ];
+    }
+}
+if (!function_exists("listSocialMediaKeys")) {
+    /**
+     * List social media keys that retrieve the BI class
+     * @return array
+     */
+    function listSocialMediaKeys(): array
+    {
+        return [
+            "twitter-x" => "X",
+            "facebook"  => "Facebook",
+            "instagram" => "Instagram",
+            "linkedin"  => "LinkedIn",
+            "youtube"   => "Youtube",
+            "globe"     => "Website",
         ];
     }
 }
 if (!function_exists("listSupportedLanguages")) {
     /**
+     * Return the languages supported by OtterNova’s UI
      * @return string[]
      */
     function listSupportedLanguages(): array
@@ -22,62 +44,294 @@ if (!function_exists("listSupportedLanguages")) {
         ];
     }
 }
-if (!function_exists("listLanguage")) {
+if (!function_exists("listLanguages")) {
     /**
+     * List all languages
+     * TODO: add more languages
      * @return array
      */
-    function listLanguage(): array
+    function listLanguages(): array
     {
         return [
-            "en-US"          => "English (US)",
-            "en-GB"          => "English (GB)",
-            "en-AU"          => "English (AU)",
-            "Southeast Asia" => [
-                "id"    => "Bahasa Indonesia",
-                "ms"    => "Bahasa Malaysia",
-                "vi"    => "tiếng Việt (Vietnamese)",
-                "th"    => "ภาษาไทย (Thai)",
-                "zh-SG" => "华语 (Huayu)",
-            ],
-            "East Asia"      => [
-                "ja"    => "日本語 (Japanese)",
-                "ko"    => "한국어 (Korean)",
-                "zh-TW" => "國語 (Mandarin)",
-            ],
+            "en-US" => "English (US)",
+            "en-GB" => "English (GB)",
+            "en-AU" => "English (AU)",
+            "id"    => "Bahasa Indonesia",
+            "ms"    => "Bahasa Malaysia",
+            "vi"    => "tiếng Việt (Vietnamese)",
+            "th"    => "ภาษาไทย (Thai)",
+            "zh-SG" => "华语 (Huayu)",
+            "ja"    => "日本語 (Japanese)",
+            "ko"    => "한국어 (Korean)",
+            "zh-TW" => "國語 (Mandarin)",
         ];
     }
 }
 if (!function_exists("listSupportedCountries")) {
     /**
+     * This is the list of countries where clients can pick up as the main business country.
+     * IMPORTANT:
+     * To add to this list, the timezones, subdivisions, and currencies must be added together.
      * @return string[]
      */
     function listSupportedCountries(): array
     {
         return [
-            "Southeast Asia" => [
-                "ID" => "Indonesia",
-                "MY" => "Malaysia",
-                "PH" => "Philippines",
-                "SG" => "Singapore",
-                "VN" => "Việt Nam (Vietnam)",
-                "TH" => "ประเทศไทย (Thailand)",
-            ],
-            "East Asia"      => [
-                "JP" => "日本 (Japan)",
-                "KR" => "한국 (South Korea)",
-                "TW" => "台灣 (Taiwan)",
-            ],
+            "ID" => "Indonesia",
+            "MY" => "Malaysia",
+            "PH" => "Philippines",
+            "SG" => "Singapore",
+            "VN" => "Việt Nam (Vietnam)",
+            "TH" => "ประเทศไทย (Thailand)",
+            "JP" => "日本 (Japan)",
+            "KR" => "한국 (South Korea)",
+            "TW" => "台灣 (Taiwan)",
+        ];
+    }
+}
+if (!function_exists("splitCountryListByRegion")) {
+    /**
+     * This function returns the array of supported country codes by region
+     * @return array
+     */
+    function splitCountryListByRegion(): array
+    {
+        return [
+            "Southeast Asia" => ["ID", "MY", "PH", "SG", "TH", "VN",],
+            "East Asia"      => ["JP", "KR", "TW",],
+        ];
+    }
+}
+if (!function_exists("listCountries")) {
+    /**
+     * List all recognized countries on earth that are not sanctioned.
+     * @return array
+     */
+    function listCountries(): array
+    {
+        return [
+            "AL" => "Albania",
+            "DZ" => "Algeria",
+            "AS" => "American Samoa",
+            "AD" => "Andorra",
+            "AO" => "Angola",
+            "AR" => "Argentina",
+            "AM" => "Armenia",
+            "AU" => "Australia",
+            "AT" => "Austria",
+            "AZ" => "Azerbaijan",
+            "BS" => "Bahamas",
+            "BH" => "Bahrain",
+            "BD" => "Bangladesh",
+            "BB" => "Barbados",
+            "BE" => "Belgium",
+            "BZ" => "Belize",
+            "BJ" => "Benin",
+            "BM" => "Bermuda",
+            "BT" => "Bhutan",
+            "BO" => "Bolivia",
+            "BA" => "Bosnia and Herzegovina",
+            "BW" => "Botswana",
+            "BR" => "Brazil",
+            "BN" => "Brunei Darussalam",
+            "BG" => "Bulgaria",
+            "BF" => "Burkina Faso",
+            "BI" => "Burundi",
+            "KH" => "Cambodia",
+            "CM" => "Cameroon",
+            "CA" => "Canada",
+            "CV" => "Cabo Verde",
+            "KY" => "Cayman Islands",
+            "CF" => "Central African Republic",
+            "TD" => "Chad",
+            "CL" => "Chile",
+            "CO" => "Colombia",
+            "KM" => "Comoros",
+            "CG" => "Congo",
+            "CD" => "Congo, The Democratic Republic of the",
+            "CK" => "Cook Islands",
+            "CR" => "Costa Rica",
+            "CI" => "Cote D’Ivoire",
+            "HR" => "Croatia",
+            "CU" => "Cuba",
+            "CY" => "Cyprus",
+            "CZ" => "Czech Republic",
+            "DK" => "Denmark",
+            "DJ" => "Djibouti",
+            "DM" => "Dominica",
+            "DO" => "Dominican Republic",
+            "EC" => "Ecuador",
+            "EG" => "Egypt",
+            "SV" => "El Salvador",
+            "GQ" => "Equatorial Guinea",
+            "ER" => "Eritrea",
+            "EE" => "Estonia",
+            "ET" => "Ethiopia",
+            "FK" => "Falkland Islands (Malvinas)",
+            "FO" => "Faroe Islands",
+            "FJ" => "Fiji",
+            "FI" => "Finland",
+            "FR" => "France",
+            "GF" => "French Guiana",
+            "PF" => "French Polynesia",
+            "GA" => "Gabon",
+            "GM" => "Gambia",
+            "GE" => "Georgia",
+            "DE" => "Germany",
+            "GH" => "Ghana",
+            "GI" => "Gibraltar",
+            "GR" => "Greece",
+            "GL" => "Greenland",
+            "GD" => "Grenada",
+            "GP" => "Guadeloupe",
+            "GU" => "Guam",
+            "GT" => "Guatemala",
+            "GG" => "Guernsey",
+            "GN" => "Guinea",
+            "GW" => "Guinea-Bissau",
+            "GY" => "Guyana",
+            "HT" => "Haiti",
+            "HN" => "Honduras",
+            "HU" => "Hungary",
+            "IS" => "Iceland",
+            "IN" => "India",
+            "ID" => "Indonesia",
+            "IE" => "Ireland",
+            "IM" => "Isle of Man",
+            "IL" => "Israel",
+            "IT" => "Italy",
+            "JM" => "Jamaica",
+            "JP" => "Japan",
+            "JE" => "Jersey",
+            "JO" => "Jordan",
+            "KZ" => "Kazakhstan",
+            "KE" => "Kenya",
+            "KI" => "Kiribati",
+            "KR" => "South Korea",
+            "KW" => "Kuwait",
+            "KG" => "Kyrgyzstan",
+            "LA" => "Laos",
+            "LV" => "Latvia",
+            "LB" => "Lebanon",
+            "LS" => "Lesotho",
+            "LR" => "Liberia",
+            "LY" => "Libya",
+            "LI" => "Liechtenstein",
+            "LT" => "Lithuania",
+            "LU" => "Luxembourg",
+            "MK" => "North Macedonia",
+            "MG" => "Madagascar",
+            "MW" => "Malawi",
+            "MY" => "Malaysia",
+            "MV" => "Maldives",
+            "ML" => "Mali",
+            "MT" => "Malta",
+            "MH" => "Marshall Islands",
+            "MQ" => "Martinique",
+            "MR" => "Mauritania",
+            "MU" => "Mauritius",
+            "YT" => "Mayotte",
+            "MX" => "Mexico",
+            "FM" => "Micronesia",
+            "MD" => "Moldova",
+            "MC" => "Monaco",
+            "MN" => "Mongolia",
+            "ME" => "Montenegro",
+            "MA" => "Morocco",
+            "MZ" => "Mozambique",
+            "NA" => "Namibia",
+            "NR" => "Nauru",
+            "NP" => "Nepal",
+            "NL" => "Netherlands",
+            "NC" => "New Caledonia",
+            "NZ" => "New Zealand",
+            "NI" => "Nicaragua",
+            "NE" => "Niger",
+            "NG" => "Nigeria",
+            "NU" => "Niue",
+            "MP" => "Northern Mariana Islands",
+            "NO" => "Norway",
+            "OM" => "Oman",
+            "PK" => "Pakistan",
+            "PW" => "Palau",
+            "PS" => "Palestine",
+            "PA" => "Panama",
+            "PG" => "Papua New Guinea",
+            "PY" => "Paraguay",
+            "PE" => "Peru",
+            "PH" => "Philippines",
+            "PL" => "Poland",
+            "PT" => "Portugal",
+            "PR" => "Puerto Rico",
+            "QA" => "Qatar",
+            "RE" => "Reunion",
+            "RO" => "Romania",
+            "RW" => "Rwanda",
+            "KN" => "Saint Kitts and Nevis",
+            "LC" => "Saint Lucia",
+            "VC" => "Saint Vincent and the Grenadines",
+            "WS" => "Samoa",
+            "SM" => "San Marino",
+            "ST" => "Sao Tome and Principe",
+            "SA" => "Saudi Arabia",
+            "SN" => "Senegal",
+            "RS" => "Serbia",
+            "SC" => "Seychelles",
+            "SL" => "Sierra Leone",
+            "SG" => "Singapore",
+            "SK" => "Slovakia",
+            "SI" => "Slovenia",
+            "SB" => "Solomon Islands",
+            "SO" => "Somalia",
+            "ZA" => "South Africa",
+            "SS" => "South Sudan",
+            "ES" => "Spain",
+            "LK" => "Sri Lanka",
+            "SD" => "Sudan",
+            "SR" => "Suriname",
+            "SZ" => "Eswatini",
+            "SE" => "Sweden",
+            "CH" => "Switzerland",
+            "TW" => "Taiwan",
+            "TJ" => "Tajikistan",
+            "TZ" => "Tanzania",
+            "TH" => "Thailand",
+            "TL" => "Timor-Leste",
+            "TG" => "Togo",
+            "TO" => "Tonga",
+            "TT" => "Trinidad and Tobago",
+            "TN" => "Tunisia",
+            "TR" => "Türkiye",
+            "TM" => "Turkmenistan",
+            "TC" => "Turks and Caicos Islands",
+            "TV" => "Tuvalu",
+            "UG" => "Uganda",
+            "UA" => "Ukraine",
+            "AE" => "United Arab Emirates",
+            "GB" => "United Kingdom",
+            "US" => "United States",
+            "UY" => "Uruguay",
+            "UZ" => "Uzbekistan",
+            "VU" => "Vanuatu",
+            "VE" => "Venezuela",
+            "VN" => "Vietnam",
+            "VG" => "Virgin Islands, British",
+            "VI" => "Virgin Islands, U.S.",
+            "EH" => "Western Sahara",
+            "ZM" => "Zambia",
+            "ZW" => "Zimbabwe",
         ];
     }
 }
 if (!function_exists("listSupportedTimezones")) {
     /**
-     * @param string $countryCode
+     * List the supported timezones
+     * Filter by country if the $countryCode parameter is not null
+     * @param string $countryCode (optional)
      * @return array|string[]
      */
-    function listSupportedTimezones(string $countryCode): array
+    function listSupportedTimezones(string $countryCode = ''): array
     {
-        $countryCode = strtoupper($countryCode);
         $timezones = [
             // Southeast Asia
             "TH" => [
@@ -111,17 +365,23 @@ if (!function_exists("listSupportedTimezones")) {
                 "Asia/Seoul" => "한국 (South Korea)"
             ],
         ];
+        if (empty($countryCode)) {
+            return $timezones;
+        }
+        $countryCode = strtoupper($countryCode);
+        // If not exist, just return empty array to indicate the timezone is not set for the country
         return $timezones[$countryCode] ?? [];
     }
 }
 if (!function_exists("listSupportedSubdivisions")) {
     /**
-     * @param string $countryCode
-     * @return array
+     * List the supported subdivisions
+     * Filter by country if the $countryCode parameter is not null
+     * @param string $countryCode (optional)
+     * @return array|string[]
      */
-    function listSupportedSubdivisions(string $countryCode): array
+    function listSupportedSubdivisions(string $countryCode = ''): array
     {
-        $countryCode = strtoupper($countryCode);
         $subdivisions = [
             // Southeast Asia
             "TH" => [
@@ -507,6 +767,64 @@ if (!function_exists("listSupportedSubdivisions")) {
                 "KR-31" => "울산 Ulsan",
             ],
         ];
+        if (empty($countryCode)) {
+            return $subdivisions;
+        }
+        $countryCode = strtoupper($countryCode);
+        // If not exist, just return empty array to indicate the subdivision is not set for the country
         return $subdivisions[$countryCode] ?? [];
+    }
+}
+if (!function_exists('listSupportedCurrencies')) {
+    /**
+     * List the supported currencies
+     * Filter by country if the $countryCode parameter is not null
+     * @param string $countryCode
+     * @return array
+     */
+    function listSupportedCurrencies(string $countryCode = ''): array
+    {
+        $currencies = [
+            "ID" => ["IDR", "USD"],
+            "MY" => ["MYR", "USD"],
+            "PH" => ["PHP", "USD"],
+            "SG" => ["SGD", "USD"],
+            "VN" => ["VND", "USD"],
+            "TH" => ["THB", "USD"],
+            "JP" => ["JPY", "USD"],
+            "KR" => ["KRW", "USD"],
+            "TW" => ["TWD", "USD"],
+        ];
+        if (empty($countryCode)) {
+            return $currencies;
+        }
+        $countryCode = strtoupper($countryCode);
+        // If not exist, just return empty array to indicate the currency is not set for the country
+        return $currencies[$countryCode] ?? [];
+    }
+}
+if (!function_exists('mapCurrencyCode')) {
+    /**
+     * This function is used to map the ISO4217 code to the currency name
+     * The parameter $currencyCode is required
+     * @param string $currencyCode
+     * @return string
+     */
+    function mapCurrencyCode(string $currencyCode): string
+    {
+        $currencies = [
+            "IDR" => "Indonesian rupiah",
+            "MYR" => "Malaysian ringgit",
+            "PHP" => "Philippine peso",
+            "SGD" => "Singapore dollar",
+            "VND" => "Đồng (Vietnamese dong)",
+            "THB" => "บาท (Thai baht)",
+            "JPY" => "円 (Japanese yen)",
+            "KRW" => "원 (South Korean won)",
+            "TWD" => "元 (New Taiwan dollar)",
+            "USD" => "US Dollar",
+        ];
+        $currencyCode = strtoupper($currencyCode);
+        return $currencies[$currencyCode] ?? '';
     }
 }
