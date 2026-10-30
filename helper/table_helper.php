@@ -486,7 +486,7 @@ if (! function_exists('lb_script')) {
       columns: columns,
       ajax: {
         url: cfg.ajaxUrl,
-        type: 'GET',
+        type: 'POST',
         data: function (d) { d.filters = currentFilters(); }
       }
     };
@@ -534,7 +534,7 @@ if (! function_exists('lb_request')) {
     function lb_request($request, array $cfg): array
     {
         $cfg = lb_defaults($cfg);
-        $g   = (array) $request->getGet();
+        $g   = (array) $request->getPost();
 
         $cols = [];
         foreach (lb_columns($cfg) as $c) {
