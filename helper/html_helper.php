@@ -66,3 +66,21 @@ if (!function_exists('formatPhoneNumber')) {
         return $e164Number;
     }
 }
+
+if (!function_exists('formatDate')) {
+    /**
+     * Format date according to the locale
+     * @param $date
+     * @param $locale
+     * @return false|string
+     */
+    function formatDate($date, $locale): false|string
+    {
+        $locale = match ($locale) {
+            'th' => 'th_TH',
+            default => 'en_US',
+        };
+        $formatter = new \IntlDateFormatter($locale, \IntlDateFormatter::FULL, \IntlDateFormatter::FULL);
+        return $formatter->format($date);
+    }
+}
