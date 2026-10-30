@@ -19,7 +19,7 @@
  *   'edit' => [
  *       'key'   => 'edit_url',                   // JSON key holding the edit URL (always the FIRST column)
  *       'url'   => site_url('products/edit/{id}'),   // optional pattern used by lb_rows(); {field} = row value
- *       'label' => 'Edit', 'icon' => 'bi-pencil-square',
+ *       'label' => 'Edit', 'icon' => 'bi-eye',
  *   ],
  *   'columns' => [
  *       ['data' => 'name',   'title' => 'Name'],
@@ -133,7 +133,7 @@ if (! function_exists('lb_defaults')) {
             'ajax_url'        => '',
             'row_id'          => null,
             'add'             => ['url' => '', 'label' => 'Add New'],
-            'edit'            => ['key' => 'edit_url', 'url' => '', 'label' => 'Edit', 'icon' => 'bi-pencil-square'],
+            'edit'            => ['key' => 'edit_url', 'url' => '', 'label' => 'Edit', 'icon' => 'bi-eye'],
             'columns'         => [],
             'filters'         => [],
             'order'           => [],
