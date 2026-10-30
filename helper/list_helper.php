@@ -71,7 +71,9 @@ if (!function_exists("listSupportedCountries")) {
     /**
      * This is the list of countries where clients can pick up as the main business country.
      * IMPORTANT:
+     * TODO:
      * To add to this list, the timezones, subdivisions, and currencies must be added together.
+     * Also, translate the country names in the listCountries() function.
      * @return array
      */
     function listSupportedCountries(): array
@@ -201,13 +203,13 @@ if (!function_exists("listCountries")) {
             "IL" => "Israel",
             "IT" => "Italy",
             "JM" => "Jamaica",
-            "JP" => "Japan",
+            "JP" => "日本 (Japan)",
             "JE" => "Jersey",
             "JO" => "Jordan",
             "KZ" => "Kazakhstan",
             "KE" => "Kenya",
             "KI" => "Kiribati",
-            "KR" => "South Korea",
+            "KR" => "한국 (South Korea)",
             "KW" => "Kuwait",
             "KG" => "Kyrgyzstan",
             "LA" => "Laos",
@@ -292,10 +294,10 @@ if (!function_exists("listCountries")) {
             "SZ" => "Eswatini",
             "SE" => "Sweden",
             "CH" => "Switzerland",
-            "TW" => "Taiwan",
+            "TW" => "台灣 (Taiwan)",
             "TJ" => "Tajikistan",
             "TZ" => "Tanzania",
-            "TH" => "Thailand",
+            "TH" => "ประเทศไทย (Thailand)",
             "TL" => "Timor-Leste",
             "TG" => "Togo",
             "TO" => "Tonga",
@@ -314,7 +316,7 @@ if (!function_exists("listCountries")) {
             "UZ" => "Uzbekistan",
             "VU" => "Vanuatu",
             "VE" => "Venezuela",
-            "VN" => "Vietnam",
+            "VN" => "Việt Nam (Vietnam)",
             "VG" => "Virgin Islands, British",
             "VI" => "Virgin Islands, U.S.",
             "EH" => "Western Sahara",
