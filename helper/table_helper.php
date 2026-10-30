@@ -236,7 +236,7 @@ if (! function_exists('lb_add_button')) {
             return '';
         }
 
-        return '<div class="text-end mb-3"><a class="btn btn-outline-primary" href="' . lb_esc($cfg['add']['url'], 'attr') . '">'
+        return '<div class="text-end mb-3 me-3"><a class="btn btn-outline-primary" href="' . lb_esc($cfg['add']['url'], 'attr') . '">'
             . '<i class="bi bi-plus-circle"></i> ' . lb_esc($cfg['add']['label']) . '</a></div>';
     }
 }
@@ -282,7 +282,7 @@ if (! function_exists('lb_filters')) {
         if (! $filters) {
             return '';
         }
-        $html = '<form id="' . lb_esc($cfg['table_id'], 'attr') . '-filters" class="row g-2 align-items-end mb-3" autocomplete="off">';
+        $html = '<form id="' . lb_esc($cfg['table_id'], 'attr') . '-filters" class="row g-2 align-items-end mb-3 mx-3" autocomplete="off">';
         foreach ($filters as $f) {
             $html .= lb_filter_control($f, $cfg);
         }
@@ -313,7 +313,7 @@ if (! function_exists('lb_render')) {
     {
         $cfg = lb_defaults($cfg);
 
-        return '<div class="card">' . lb_header($cfg) . '<div class="card-body">'
+        return '<div class="card">' . lb_header($cfg) . '<div class="card-body px-0">'
             . lb_add_button($cfg) . lb_filters($cfg) . lb_table($cfg)
             . '</div></div>';
     }
