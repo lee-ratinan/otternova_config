@@ -40,6 +40,9 @@ if (!function_exists('formatCurrency')) {
         if (in_array($currencyCode, ["TWD", "JPY", "KRW"])) {
             $decimalPlaces = 0;
         }
+        if (0 == $decimalPlaces) {
+            $amount = floor($amount);
+        }
         $number = number_format($amount, $decimalPlaces, $decimalSeparator, $thousandsSeparator);
         return str_replace('###', $number, $supportedFormats[$currencyCode]);
     }
