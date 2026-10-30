@@ -344,9 +344,9 @@ if (!function_exists("listSupportedTimezones")) {
                 "Asia/Kuala_Lumpur" => "Malaysia"
             ],
             "ID" => [
-                "Asia/Jakarta"  => "Jakarta, Medan, Pontianak; Waktu Indonesia Barat (WIB)",
-                "Asia/Makassar" => "Bali; Waktu Indonesia Tengah (WITA)",
-                "Asia/Jayapura" => "Papua; Waktu Indonesia Timur (WIT)"
+                "Asia/Jakarta"  => "WIB; Jakarta, Medan (Western)",
+                "Asia/Makassar" => "WITA; Bali (Central)",
+                "Asia/Jayapura" => "WIT; Papua (Eastern)"
             ],
             "PH" => [
                 "Asia/Manila" => "Philippines"
