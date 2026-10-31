@@ -87,7 +87,18 @@ if (!function_exists('formatDate')) {
             'th' => 'th_TH',
             default => 'en_US',
         };
-        $formatter = new \IntlDateFormatter($locale, \IntlDateFormatter::FULL, \IntlDateFormatter::FULL);
-        return $formatter->format($date);
+        $time = strtotime($date);
+        if (false === $time) {
+            return $date;
+        }
+        if ('th_TH' == $locale) {
+            $month = date('n', $time);
+            $monthNames = [
+                'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+                'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+            ];
+            $date = date('j', $time) . ' ' . $monthNames[$month - 1] . ' ' . (date('Y', $time) + 543);
+        }
+        return date('M j, Y', $time);
     }
 }
