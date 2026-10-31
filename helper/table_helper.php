@@ -777,7 +777,8 @@ if (! function_exists('lb_rows')) {
         }
         foreach ($rows as &$row) {
             if (empty($row[$key])) {
-                $row[$key] = preg_replace_callback('/\{(\w+)\}/', static fn ($m) => rawurlencode((string) ($row[$m[1]] ?? '')), $pattern);
+                // base_url()/site_url() percent-encode the braces, so {id} may arrive as %7Bid%7D
+                $row[$key] = preg_replace_callback('/(?:\{|%7B)(\w+)(?:\}|%7D)/i', static fn ($m) => rawurlencode((string) ($row[$m[1]] ?? '')), $pattern);
             }
         }
         unset($row);

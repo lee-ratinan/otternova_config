@@ -1383,8 +1383,18 @@ if (! function_exists('fb_script')) {
     async function confirmDelete() {
       if (window.Swal && typeof window.Swal.fire === 'function') {
         var res = await window.Swal.fire({
-          title: cfg.messages.confirmDelete, icon: 'warning', showCancelButton: true,
-          confirmButtonText: 'Delete', confirmButtonColor: '#dc3545'
+          title: cfg.messages.confirmDelete,
+          icon: 'warning',
+          color: '#994202',
+          customClass: {
+            title: 'card-title',
+            confirmButton: 'btn btn-danger',
+            cancelButton: 'btn btn-outline-secondary',
+          },
+          showCancelButton: true,
+          showConfirmButton: true,
+          cancelButtonText: 'Keep It',
+          confirmButtonText: 'Delete',
         });
         return !!res.isConfirmed;
       }
