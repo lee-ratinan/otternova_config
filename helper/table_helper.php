@@ -9,46 +9,72 @@
  * =====================================================================================
  * CONFIGURATION STRUCTURE (built in the Controller, passed to the view as $tableConfig)
  * =====================================================================================
+ * Same shape as the Form Builder config (form_helper.php): urls / labels / messages / values / csrf / layout.
  * [
- *   'table_id'  => 'mainDataTables',
+ *   'table_id'  => 'mainDataTables',     // DOM id of the <table>; must be unique per page
  *   'title'     => 'Products',
  *   'subtitle'  => 'All products in the catalogue',
- *   'ajax_url'  => site_url('products/data'),    // JSON endpoint (server-side DataTables, GET)
- *   'row_id'    => 'id',                         // optional: JSON key used as DataTables row id
- *   'add'  => ['url' => site_url('products/create'), 'label' => 'Add Product'],   // button only if url != ''
- *   'edit' => [
- *       'key'   => 'edit_url',                   // JSON key holding the edit URL (always the FIRST column)
- *       'url'   => site_url('products/edit/{id}'),   // optional pattern used by lb_rows(); {field} = row value
- *       'label' => 'Edit', 'icon' => 'bi-eye',
+ *   'id_field'  => 'id',                 // JSON key of the primary key: DataTables row id + {id} in urls.edit (null = none)
+ *   'method'    => 'POST',               // HTTP verb of the data request (GET|POST)
+ *   'editable'  => true,                 // false = no edit-button column
+ *   'csrf'      => true,                 // true = auto CI4 token (sent as a header on POST), false = disable
+ *   'id_prefix' => null,                 // prepended to filter ids (null = table_id . '_f_')
+ *   'layout'    => ['filter_col' => 3],  // default Bootstrap width (1-12) of each filter at md and up
+ *   'urls' => [
+ *       'data'   => site_url('products/data'),       // JSON endpoint (server-side DataTables)
+ *       'create' => site_url('products/create'),     // Add button (rendered only when not empty)
+ *       'edit'   => site_url('products/edit/{id}'),  // pattern used by lb_rows(); {field} = row value
  *   ],
- *   'columns' => [
- *       ['data' => 'name',   'title' => 'Name'],
- *       ['data' => 'status', 'title' => 'Status', 'type' => 'badge',
- *           'badges' => ['A' => ['label' => 'Active', 'class' => 'bg-success'], 'I' => ['label' => 'Inactive', 'class' => 'bg-secondary']]],
- *       ['data' => 'category', 'db' => 'c.name'],                     // db = real column/alias used for search + order
- *       ['data' => 'price', 'type' => 'number', 'decimals' => 2, 'class' => 'text-end'],
- *       ['data' => 'is_active', 'type' => 'boolean', 'labels' => ['true' => 'Yes', 'false' => 'No']],
- *       ['data' => 'tags_html', 'type' => 'html', 'orderable' => false, 'searchable' => false],
- *   ],
- *       // column keys: data, title, db, type (text|html|badge|boolean|number), orderable, searchable,
- *       //              class, width, labels (value => label), badges, decimals
- *       // NOTE: 'text' (default) is HTML-escaped; 'html' is inserted as-is, so only send trusted markup.
- *   'filters' => [
- *       ['name' => 'status', 'type' => 'select', 'label' => 'Status', 'options' => ['A' => 'Active', 'I' => 'Inactive']],
- *       ['name' => 'category_id', 'type' => 'select', 'label' => 'Category', 'column' => 'p.category_id', 'multiple' => true,
- *           'options' => [1 => 'Electronics', 2 => 'Books']],
- *       ['name' => 'name', 'type' => 'text', 'label' => 'Name contains', 'operator' => 'like'],
- *       ['name' => 'from', 'type' => 'date', 'label' => 'Created from', 'column' => 'p.created_at', 'operator' => '>='],
- *       ['name' => 'to',   'type' => 'date', 'label' => 'Created to',   'column' => 'p.created_at', 'operator' => '<='],
- *   ],
- *       // filter keys: name, type (text|select|date|number), label, options (value => label), value (default),
- *       //              column (DB column, default = name), operator (= != > >= < <= like in), multiple, col (1-12),
- *       //              placeholder, attrs
- *   'order'       => [['name', 'asc']],      // [[data key, dir]]
+ *   'edit_key' => 'edit_url',            // JSON key holding each row's edit URL (always the FIRST column)
+ *   'labels'   => ['add'=>'Add New','edit'=>'Edit','reset'=>'Reset','all'=>'All'],
+ *   'icons'    => ['add'=>'bi-plus-circle','edit'=>'bi-eye','reset'=>'bi-arrow-counterclockwise'],
+ *   'messages' => ['loadFailed'=>...],
+ *   'values'   => ['status' => 'A'],     // initial filter values (keyed by filter name)
+ *   'columns'  => [ <column>, <column>, ... ],
+ *   'filters'  => [ <filter>, <filter>, ... ],
+ *   'order'       => [['name', 'asc']],  // [[column data key, dir]]
  *   'page_length' => 25,
  *   'length_menu' => [10, 25, 50, 100],
- *   'dt_options'  => [],                     // extra raw DataTables options (JSON-safe only)
+ *   'max_page_length' => 500,            // server-side cap (also caps DataTables' "All")
+ *   'search_delay'    => 400,            // ms debounce for search box and typed filters
+ *   'dt_options'  => [],                 // extra raw DataTables options (JSON-safe only)
  * ]
+ *
+ * COLUMN:
+ * [
+ *   'data'       => 'price',             // required: JSON key of the row
+ *   'title'      => 'Price',             // default: humanised data
+ *   'db'         => 'p.price',           // real column/alias used for search + order (default: data)
+ *   'type'       => 'text' | 'html' | 'badge' | 'boolean' | 'number',
+ *                   // NOTE: 'text' (default) is HTML-escaped; 'html' is inserted as-is, so only send trusted markup.
+ *   'orderable'  => true,
+ *   'searchable' => true,
+ *   'class'      => 'text-end',
+ *   'width'      => '10%',
+ *   'labels'     => ['A' => 'Active'],   // value => label  (boolean: ['true' => 'Yes', 'false' => 'No'])
+ *   'badges'     => ['A' => ['label' => 'Active', 'class' => 'bg-success']],
+ *   'decimals'   => 2,                   // number only
+ * ]
+ *
+ * FILTER (same keys as a Form Builder field where they apply):
+ * [
+ *   'name'        => 'category_id',      // required: sent as filters[name]
+ *   'type'        => 'text' | 'search' | 'select' | 'date' | 'datetime-local' | 'time' | 'month' | 'number',
+ *   'id'          => 'category_id',      // default: id_prefix + name
+ *   'label'       => 'Category',         // default: humanised name
+ *   'help'        => 'Help message',
+ *   'default'     => 'x',                // initial value when values[name] is not set
+ *   'options'     => [1 => 'Electronics', 2 => 'Books']      // value => label
+ *                 or [['value'=>1,'label'=>'Electronics','disabled'=>true], ...]
+ *   'multiple'    => true,               // select multiple (operator defaults to 'in')
+ *   'attrs'       => ['min'=>0,'step'=>1,'placeholder'=>'..','class'=>'extra','data-x'=>'y', ...],
+ *                    // shortcut: placeholder/min/max/step/autocomplete may also be set directly on the filter
+ *   'column'      => 'p.category_id',    // DB column (default: name)
+ *   'operator'    => '=' | '!=' | '>' | '>=' | '<' | '<=' | 'like' | 'in',   // default: like for text, = otherwise
+ *   'col'         => 3,                  // Bootstrap width override (default: layout.filter_col)
+ * ]
+ *
+ * Legacy keys (ajax_url, row_id, add[url,label], edit[key,url,label,icon], filter 'value') are still accepted.
  */
 
 // ---------------------------------------------------------------------------------------------
@@ -94,16 +120,16 @@ if (! function_exists('lb_humanize')) {
 }
 
 if (! function_exists('lb_options')) {
-    /** value => label  or  [['value'=>..,'label'=>..], ...]  ->  [['value'=>string,'label'=>string], ...] */
+    /** value => label  or  [['value'=>..,'label'=>..,'disabled'=>..], ...]  ->  [['value'=>string,'label'=>string,'disabled'=>bool], ...] */
     function lb_options($options): array
     {
         $out = [];
         foreach ((array) $options as $key => $opt) {
             if (is_array($opt)) {
                 $value = $opt['value'] ?? $key;
-                $out[] = ['value' => (string) $value, 'label' => (string) ($opt['label'] ?? $value)];
+                $out[] = ['value' => (string) $value, 'label' => (string) ($opt['label'] ?? $value), 'disabled' => ! empty($opt['disabled'])];
             } else {
-                $out[] = ['value' => (string) $key, 'label' => (string) $opt];
+                $out[] = ['value' => (string) $key, 'label' => (string) $opt, 'disabled' => false];
             }
         }
 
@@ -115,14 +141,70 @@ if (! function_exists('lb_options')) {
 // 1. Config normalisation
 // ---------------------------------------------------------------------------------------------
 
+if (! function_exists('lb_csrf')) {
+    function lb_csrf()
+    {
+        if (! function_exists('csrf_token')) {
+            return false;
+        }
+
+        return [
+            'name'   => csrf_token(),
+            'hash'   => function_exists('csrf_hash') ? csrf_hash() : '',
+            'header' => function_exists('csrf_header') ? csrf_header() : 'X-CSRF-TOKEN',
+        ];
+    }
+}
+
+if (! function_exists('lb_legacy')) {
+    /** Map the old config keys (ajax_url, row_id, add[...], edit[...]) onto the shared structure. */
+    function lb_legacy(array $cfg): array
+    {
+        if (array_key_exists('ajax_url', $cfg)) {
+            $cfg['urls']['data'] ??= $cfg['ajax_url'];
+        }
+        if (array_key_exists('row_id', $cfg) && ! array_key_exists('id_field', $cfg)) {
+            $cfg['id_field'] = $cfg['row_id'];
+        }
+        if (isset($cfg['add']) && is_array($cfg['add'])) {
+            if (isset($cfg['add']['url'])) {
+                $cfg['urls']['create'] ??= $cfg['add']['url'];
+            }
+            if (isset($cfg['add']['label'])) {
+                $cfg['labels']['add'] ??= $cfg['add']['label'];
+            }
+        }
+        if (isset($cfg['edit']) && is_array($cfg['edit'])) {
+            if (isset($cfg['edit']['key'])) {
+                $cfg['edit_key'] ??= $cfg['edit']['key'];
+            }
+            if (isset($cfg['edit']['url'])) {
+                $cfg['urls']['edit'] ??= $cfg['edit']['url'];
+            }
+            if (isset($cfg['edit']['label'])) {
+                $cfg['labels']['edit'] ??= $cfg['edit']['label'];
+            }
+            if (isset($cfg['edit']['icon'])) {
+                $cfg['icons']['edit'] ??= $cfg['edit']['icon'];
+            }
+        }
+        unset($cfg['ajax_url'], $cfg['row_id'], $cfg['add'], $cfg['edit']);
+
+        return $cfg;
+    }
+}
+
 if (! function_exists('lb_defaults')) {
+    /** Merge a controller config with defaults. Idempotent, so every helper can safely call it. */
     function lb_defaults(array $cfg): array
     {
         if (! empty($cfg['_lb_ready'])) {
             return $cfg;
         }
 
-        // tables are handled separately: array_replace_recursive would merge them index by index
+        $cfg = lb_legacy($cfg);
+
+        // lists are handled separately: array_replace_recursive would merge them index by index
         $lengthMenu = $cfg['length_menu'] ?? [10, 25, 50, 100];
         unset($cfg['length_menu']);
 
@@ -130,10 +212,18 @@ if (! function_exists('lb_defaults')) {
             'table_id'        => 'mainDataTables',
             'title'           => '',
             'subtitle'        => '',
-            'ajax_url'        => '',
-            'row_id'          => null,
-            'add'             => ['url' => '', 'label' => 'Add New'],
-            'edit'            => ['key' => 'edit_url', 'url' => '', 'label' => 'Edit', 'icon' => 'bi-eye'],
+            'id_field'        => 'id',
+            'method'          => 'POST',
+            'editable'        => true,
+            'csrf'            => true,
+            'id_prefix'       => null,
+            'layout'          => ['filter_col' => 3],
+            'urls'            => ['data' => '', 'create' => '', 'edit' => ''],
+            'edit_key'        => 'edit_url',
+            'labels'          => ['add' => 'Add New', 'edit' => 'Edit', 'reset' => 'Reset', 'all' => 'All'],
+            'icons'           => ['add' => 'bi-plus-circle', 'edit' => 'bi-eye', 'reset' => 'bi-arrow-counterclockwise'],
+            'messages'        => ['loadFailed' => 'Could not load data. Please try again.'],
+            'values'          => [],
             'columns'         => [],
             'filters'         => [],
             'order'           => [],
@@ -141,20 +231,28 @@ if (! function_exists('lb_defaults')) {
             'max_page_length' => 500,
             'search_delay'    => 400,
             'dt_options'      => [],
-            'labels'          => ['reset' => 'Reset'],
-            'messages'        => ['loadFailed' => 'Could not load data. Please try again.'],
         ], $cfg);
 
         $cfg['length_menu'] = $lengthMenu;
         $cfg['table_id']    = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string) $cfg['table_id']);
-        $cfg['_lb_ready']   = true;
+        $cfg['method']      = strtoupper((string) $cfg['method']) === 'GET' ? 'GET' : 'POST';
+        $cfg['layout']['filter_col'] = max(1, min(12, (int) $cfg['layout']['filter_col']));
+        if ($cfg['id_prefix'] === null) {
+            $cfg['id_prefix'] = $cfg['table_id'] . '_f_';
+        }
+        if ($cfg['csrf'] === true) {
+            $cfg['csrf'] = lb_csrf();
+        } elseif (! is_array($cfg['csrf'])) {
+            $cfg['csrf'] = false;
+        }
+        $cfg['_lb_ready'] = true;
 
         return $cfg;
     }
 }
 
 if (! function_exists('lb_columns')) {
-    /** Normalised column table (without the edit column, which is always prepended by the script). */
+    /** Normalised column table (without the edit column, which is prepended by the script when editable). */
     function lb_columns(array $cfg): array
     {
         $cfg = lb_defaults($cfg);
@@ -182,9 +280,10 @@ if (! function_exists('lb_columns')) {
 if (! function_exists('lb_filters_norm')) {
     function lb_filters_norm(array $cfg): array
     {
-        $cfg = lb_defaults($cfg);
-        $ops = ['=', '!=', '>', '>=', '<', '<=', 'like', 'in'];
-        $out = [];
+        $cfg    = lb_defaults($cfg);
+        $ops    = ['=', '!=', '>', '>=', '<', '<=', 'like', 'in'];
+        $values = (array) $cfg['values'];
+        $out    = [];
         foreach ((array) $cfg['filters'] as $f) {
             $name = (string) ($f['name'] ?? '');
             if ($name === '') {
@@ -193,18 +292,29 @@ if (! function_exists('lb_filters_norm')) {
             $type     = strtolower((string) ($f['type'] ?? 'text'));
             $multiple = ! empty($f['multiple']) && $type === 'select';
             $op       = strtolower((string) ($f['operator'] ?? ($multiple ? 'in' : ($type === 'text' ? 'like' : '='))));
-            $out[]    = [
-                'name'        => $name,
-                'type'        => $type,
-                'label'       => (string) ($f['label'] ?? lb_humanize($name)),
-                'options'     => lb_options($f['options'] ?? []),
-                'value'       => $f['value'] ?? ($multiple ? [] : ''),
-                'column'      => (string) ($f['column'] ?? $name),
-                'operator'    => in_array($op, $ops, true) ? $op : '=',
-                'multiple'    => $multiple,
-                'col'         => max(1, min(12, (int) ($f['col'] ?? 3))),
-                'placeholder' => $f['placeholder'] ?? null,
-                'attrs'       => (array) ($f['attrs'] ?? []),
+
+            $value = array_key_exists($name, $values) ? $values[$name] : ($f['default'] ?? $f['value'] ?? null);
+
+            $a = (array) ($f['attrs'] ?? []);
+            foreach (['placeholder', 'min', 'max', 'step', 'autocomplete'] as $k) {
+                if (array_key_exists($k, $f) && ! array_key_exists($k, $a)) {
+                    $a[$k] = $f[$k];
+                }
+            }
+
+            $out[] = [
+                'name'     => $name,
+                'type'     => $type,
+                'id'       => (string) ($f['id'] ?? ($cfg['id_prefix'] . preg_replace('/[^A-Za-z0-9_\-]/', '_', $name))),
+                'label'    => (string) ($f['label'] ?? lb_humanize($name)),
+                'help'     => (string) ($f['help'] ?? ''),
+                'options'  => lb_options($f['options'] ?? []),
+                'value'    => $value ?? ($multiple ? [] : ''),
+                'column'   => (string) ($f['column'] ?? $name),
+                'operator' => in_array($op, $ops, true) ? $op : '=',
+                'multiple' => $multiple,
+                'col'      => max(1, min(12, (int) ($f['col'] ?? $cfg['layout']['filter_col']))),
+                'attrs'    => $a,
             ];
         }
 
@@ -228,48 +338,54 @@ if (! function_exists('lb_header')) {
 }
 
 if (! function_exists('lb_add_button')) {
-    /** "Add" button -> form page in create mode. Rendered only when add.url is not empty. */
+    /** "Add" button -> form page in create mode. Rendered only when urls.create is not empty. */
     function lb_add_button(array $cfg): string
     {
         $cfg = lb_defaults($cfg);
-        if (trim((string) $cfg['add']['url']) === '') {
+        if (trim((string) $cfg['urls']['create']) === '') {
             return '';
         }
 
-        return '<div class="text-end mb-3 me-3"><a class="btn btn-outline-primary" href="' . lb_esc($cfg['add']['url'], 'attr') . '">'
-            . '<i class="bi bi-plus-circle"></i> ' . lb_esc($cfg['add']['label']) . '</a></div>';
+        return '<div class="text-end mb-3 me-3"><a class="btn btn-outline-primary" href="' . lb_esc($cfg['urls']['create'], 'attr') . '">'
+            . '<i class="bi ' . lb_esc($cfg['icons']['add'], 'attr') . '"></i> ' . lb_esc($cfg['labels']['add']) . '</a></div>';
     }
 }
 
 if (! function_exists('lb_filter_control')) {
-    /** One filter (label + control) inside a Bootstrap column. */
+    /** One filter (label + control + help) inside a Bootstrap column. */
     function lb_filter_control(array $f, array $cfg): string
     {
         $cfg   = lb_defaults($cfg);
-        $id    = $cfg['table_id'] . '_f_' . preg_replace('/[^A-Za-z0-9_\-]/', '_', $f['name']);
+        $id    = $f['id'];
         $attrs = $f['attrs'];
         $extra = $attrs['class'] ?? '';
         unset($attrs['class']);
+        $extra = is_array($extra) ? implode(' ', $extra) : (string) $extra;
 
         if ($f['type'] === 'select') {
+            $ph = array_key_exists('placeholder', $attrs) ? $attrs['placeholder'] : $cfg['labels']['all'];
+            unset($attrs['placeholder']);
             $sel   = array_map('strval', (array) $f['value']);
             $attrs = ['id' => $id, 'data-lb-filter' => $f['name'], 'class' => trim('form-select ' . $extra), 'multiple' => $f['multiple']] + $attrs;
             $html  = '<select' . lb_attrs($attrs) . '>';
-            if (! $f['multiple']) {
-                $html .= '<option value="">' . lb_esc($f['placeholder'] ?? 'All') . '</option>';
+            if (! $f['multiple'] && $ph !== false && $ph !== null) {
+                $html .= '<option value="">' . lb_esc($ph) . '</option>';
             }
             foreach ($f['options'] as $o) {
-                $html .= '<option value="' . lb_esc($o['value'], 'attr') . '"' . (in_array($o['value'], $sel, true) ? ' selected' : '') . '>' . lb_esc($o['label']) . '</option>';
+                $html .= '<option value="' . lb_esc($o['value'], 'attr') . '"'
+                    . (in_array($o['value'], $sel, true) ? ' selected' : '')
+                    . ($o['disabled'] ? ' disabled' : '') . '>' . lb_esc($o['label']) . '</option>';
             }
             $control = $html . '</select>';
         } else {
             $type    = in_array($f['type'], ['text', 'search', 'date', 'number', 'datetime-local', 'time', 'month'], true) ? $f['type'] : 'text';
             $attrs   = ['type' => $type, 'id' => $id, 'data-lb-filter' => $f['name'], 'class' => trim('form-control ' . $extra),
-                        'value' => is_array($f['value']) ? '' : (string) $f['value'], 'placeholder' => $f['placeholder']] + $attrs;
+                        'value' => is_array($f['value']) ? '' : (string) $f['value']] + $attrs;
             $control = '<input' . lb_attrs($attrs) . '>';
         }
 
-        return '<div class="col-12 col-md-' . $f['col'] . '"><label class="form-label" for="' . lb_esc($id, 'attr') . '">' . lb_esc($f['label']) . '</label>' . $control . '</div>';
+        return '<div class="col-12 col-md-' . $f['col'] . '"><label class="form-label" for="' . lb_esc($id, 'attr') . '">' . lb_esc($f['label']) . '</label>'
+            . $control . ($f['help'] !== '' ? '<div class="form-text">' . lb_esc($f['help']) . '</div>' : '') . '</div>';
     }
 }
 
@@ -287,18 +403,21 @@ if (! function_exists('lb_filters')) {
             $html .= lb_filter_control($f, $cfg);
         }
 
-        return $html . '<div class="col-auto"><button type="reset" class="btn btn-outline-secondary"><i class="bi bi-arrow-counterclockwise"></i> '
+        return $html . '<div class="col-auto"><button type="reset" class="btn btn-outline-secondary"><i class="bi ' . lb_esc($cfg['icons']['reset'], 'attr') . '"></i> '
             . lb_esc($cfg['labels']['reset']) . '</button></div></form>';
     }
 }
 
 if (! function_exists('lb_table')) {
-    /** <table> with the header row. The first <th> belongs to the edit-button column. */
+    /** <table> with the header row. When editable, the first <th> belongs to the edit-button column. */
     function lb_table(array $cfg): string
     {
         $cfg  = lb_defaults($cfg);
         $html = '<div class="table-responsive"><table id="' . lb_esc($cfg['table_id'], 'attr') . '" class="table table-hover table-striped" style="width:100%">'
-            . '<thead><tr><th style="width:1%"><span class="visually-hidden">' . lb_esc($cfg['edit']['label']) . '</span></th>';
+            . '<thead><tr>';
+        if ($cfg['editable']) {
+            $html .= '<th style="width:1%"><span class="visually-hidden">' . lb_esc($cfg['labels']['edit']) . '</span></th>';
+        }
         foreach (lb_columns($cfg) as $c) {
             $html .= '<th' . ($c['width'] !== '' ? ' style="width:' . lb_esc($c['width'], 'attr') . '"' : '') . '>' . lb_esc($c['title']) . '</th>';
         }
@@ -313,21 +432,25 @@ if (! function_exists('lb_render')) {
     {
         $cfg = lb_defaults($cfg);
 
-        return '<div class="card">' . lb_header($cfg) . '<div class="card-body px-0">'
+        return '<div class="card" id="' . lb_esc($cfg['table_id'], 'attr') . '-card">' . lb_header($cfg) . '<div class="card-body px-0">'
             . lb_add_button($cfg) . lb_filters($cfg) . lb_table($cfg)
             . '</div></div>';
     }
 }
 
 if (! function_exists('lb_script')) {
-    /** Generates the <script> that initialises DataTables, the edit column and the filters. */
+    /**
+     * Generates the <script> that initialises DataTables, the edit column and the filters.
+     * Echo it after lb_render(): <?= lb_script($tableConfig) ?>
+     */
     function lb_script(array $cfg): string
     {
         $cfg     = lb_defaults($cfg);
         $columns = lb_columns($cfg);
+        $offset  = $cfg['editable'] ? 1 : 0; // the edit column, when present, is always column 0
         $index   = [];
         foreach ($columns as $i => $c) {
-            $index[$c['data']] = $i + 1; // +1: the edit column is always column 0
+            $index[$c['data']] = $i + $offset;
         }
         $order = [];
         foreach ((array) $cfg['order'] as $o) {
@@ -353,11 +476,14 @@ if (! function_exists('lb_script')) {
 
         $js = [
             'tableId'     => $cfg['table_id'],
-            'ajaxUrl'     => $cfg['ajax_url'],
-            'rowId'       => $cfg['row_id'],
-            'editKey'     => $cfg['edit']['key'],
-            'editLabel'   => $cfg['edit']['label'],
-            'editIcon'    => $cfg['edit']['icon'],
+            'method'      => $cfg['method'],
+            'idField'     => $cfg['id_field'],
+            'editable'    => (bool) $cfg['editable'],
+            'editKey'     => $cfg['edit_key'],
+            'urls'        => ['data' => $cfg['urls']['data']],
+            'labels'      => $cfg['labels'],
+            'icons'       => $cfg['icons'],
+            'csrf'        => $cfg['csrf'] ? ['name' => $cfg['csrf']['name'], 'hash' => $cfg['csrf']['hash'], 'header' => $cfg['csrf']['header']] : null,
             'columns'     => $jsCols,
             'order'       => $order,
             'pageLength'  => (int) $cfg['page_length'],
@@ -434,6 +560,7 @@ if (! function_exists('lb_script')) {
     var tableEl = document.getElementById(cfg.tableId);
     if (!tableEl) { return; }
     var filterForm = document.getElementById(cfg.tableId + '-filters');
+    var csrfHash = cfg.csrf ? cfg.csrf.hash : '';
 
     // ---- filters -> extra request parameters: filters[name]=value --------------------------
     function currentFilters() {
@@ -451,15 +578,18 @@ if (! function_exists('lb_script')) {
       return out;
     }
 
-    // ---- columns: the FIRST column is always the edit button (URL comes from the JSON) ----
-    var columns = [{
-      data: cfg.editKey, orderable: false, searchable: false, className: 'text-nowrap', defaultContent: '',
-      render: function (url, type) {
-        if (type !== 'display' || !url) { return ''; }
-        return '<a class="btn btn-sm btn-outline-primary" href="' + esc(url) + '" title="' + esc(cfg.editLabel) + '">' +
-               '<i class="bi ' + esc(cfg.editIcon) + '"></i></a>';
-      }
-    }];
+    // ---- columns: the FIRST column is the edit button (URL comes from the JSON) ------------
+    var columns = [];
+    if (cfg.editable) {
+      columns.push({
+        data: cfg.editKey, orderable: false, searchable: false, className: 'text-nowrap', defaultContent: '',
+        render: function (url, type) {
+          if (type !== 'display' || !url) { return ''; }
+          return '<a class="btn btn-sm btn-outline-primary" href="' + esc(url) + '" title="' + esc(cfg.labels.edit) + '">' +
+                 '<i class="bi ' + esc(cfg.icons.edit) + '"></i></a>';
+        }
+      });
+    }
     cfg.columns.forEach(function (c) {
       var col = { data: c.data, orderable: c.orderable, searchable: c.searchable, className: c.className || '', defaultContent: '' };
       var r = renderer(c);
@@ -467,9 +597,14 @@ if (! function_exists('lb_script')) {
       columns.push(col);
     });
 
-    // Surface server / network errors as a toast. (Returning true tells DataTables the error was handled;
-    // if your DataTables version still shows its own alert, set $.fn.dataTable.ext.errMode = 'none'.)
-    $(tableEl).on('xhr.dt', function (e, settings, json) {
+    // Surface server / network errors as a toast and keep the CSRF token fresh. (Returning true tells
+    // DataTables the error was handled; if your DataTables version still shows its own alert,
+    // set $.fn.dataTable.ext.errMode = 'none'.)
+    $(tableEl).on('xhr.dt', function (e, settings, json, xhr) {
+      if (cfg.csrf) {
+        var fresh = (json && json.csrf_hash) || (xhr && xhr.getResponseHeader && xhr.getResponseHeader(cfg.csrf.header));
+        if (fresh) { csrfHash = fresh; }
+      }
       if (!json || json.error) {
         notify('error', esc((json && json.error) || cfg.messages.loadFailed));
         return true;
@@ -485,12 +620,16 @@ if (! function_exists('lb_script')) {
       order: cfg.order,
       columns: columns,
       ajax: {
-        url: cfg.ajaxUrl,
-        type: 'POST',
-        data: function (d) { d.filters = currentFilters(); }
+        url: cfg.urls.data,
+        type: cfg.method,
+        data: function (d) { d.filters = currentFilters(); },
+        beforeSend: function (xhr) {
+          xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+          if (cfg.csrf && cfg.method !== 'GET' && csrfHash) { xhr.setRequestHeader(cfg.csrf.header, csrfHash); }
+        }
       }
     };
-    if (cfg.rowId) { opts.rowId = cfg.rowId; }
+    if (cfg.idField) { opts.rowId = cfg.idField; }
     var table = $(tableEl).DataTable($.extend(true, opts, cfg.dtOptions));
 
     // ---- when a filter changes, reload the data (back to page 1) ---------------------------
@@ -512,6 +651,7 @@ if (! function_exists('lb_script')) {
       filterForm.addEventListener('reset', function () { setTimeout(reload, 0); });
     }
 
+    // Public handle, e.g. window.TableBuilder['mainDataTables'].reload()
     window.TableBuilder = window.TableBuilder || {};
     window.TableBuilder[cfg.tableId] = { table: table, filters: currentFilters, reload: function () { table.ajax.reload(); } };
   }
@@ -530,11 +670,11 @@ JS;
 // ---------------------------------------------------------------------------------------------
 
 if (! function_exists('lb_request')) {
-    /** Parse the DataTables request (GET) into a safe structure. Only configured columns/filters are honoured. */
+    /** Parse the DataTables request (cfg.method) into a safe structure. Only configured columns/filters are honoured. */
     function lb_request($request, array $cfg): array
     {
         $cfg = lb_defaults($cfg);
-        $g   = (array) $request->getPost();
+        $g   = (array) ($cfg['method'] === 'GET' ? $request->getGet() : $request->getPost());
 
         $cols = [];
         foreach (lb_columns($cfg) as $c) {
@@ -626,13 +766,13 @@ if (! function_exists('lb_apply_filters')) {
 }
 
 if (! function_exists('lb_rows')) {
-    /** Add the edit URL (JSON key edit.key) to every row from the edit.url pattern, e.g. products/edit/{id}. */
+    /** Add the edit URL (JSON key edit_key) to every row from the urls.edit pattern, e.g. products/edit/{id}. */
     function lb_rows(array $rows, array $cfg): array
     {
         $cfg     = lb_defaults($cfg);
-        $key     = $cfg['edit']['key'];
-        $pattern = (string) $cfg['edit']['url'];
-        if ($pattern === '') {
+        $key     = $cfg['edit_key'];
+        $pattern = (string) $cfg['urls']['edit'];
+        if ($pattern === '' || ! $cfg['editable']) {
             return $rows;
         }
         foreach ($rows as &$row) {
@@ -694,6 +834,11 @@ if (! function_exists('lb_handle')) {
             $rows = array_map($rowFn, $rows);
         }
 
-        return lb_response($p['draw'], $total, $filtered, lb_rows($rows, $cfg));
+        $out = lb_response($p['draw'], $total, $filtered, lb_rows($rows, $cfg));
+        if ($cfg['csrf'] && function_exists('csrf_hash')) {
+            $out['csrf_hash'] = csrf_hash(); // lets the script keep its token fresh when CSRF regenerates
+        }
+
+        return $out;
     }
 }
