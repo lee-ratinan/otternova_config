@@ -1,21 +1,26 @@
-# helpers
-cp helper/html_helper.php ~/Documents/Otternova-Repositories/otternova_www/root/app/Helpers/html_helper.php
-cp helper/list_helper.php ~/Documents/Otternova-Repositories/otternova_www/root/app/Helpers/list_helper.php
+#!/bin/bash
+set -e
 
-cp helper/html_helper.php ~/Documents/Otternova-Repositories/otternova_api/root/app/Helpers/html_helper.php
-cp helper/list_helper.php ~/Documents/Otternova-Repositories/otternova_api/root/app/Helpers/list_helper.php
+cd "$(dirname "$0")"
+REPOS=~/Documents/Otternova-Repositories
 
-cp helper/html_helper.php ~/Documents/Otternova-Repositories/otternova_client/root/app/Helpers/html_helper.php
-cp helper/list_helper.php ~/Documents/Otternova-Repositories/otternova_client/root/app/Helpers/list_helper.php
-cp helper/form_helper.php ~/Documents/Otternova-Repositories/otternova_client/root/app/Helpers/form_helper.php
-cp helper/table_helper.php ~/Documents/Otternova-Repositories/otternova_client/root/app/Helpers/table_helper.php
+# copy all contents of a source folder into a destination folder (skipping .DS_Store)
+copy_dir() {
+    mkdir -p "$2"
+    rsync -a --exclude='.DS_Store' "$1/" "$2/"
+}
 
-cp helper/html_helper.php ~/Documents/Otternova-Repositories/otternova_admin/root/app/Helpers/html_helper.php
-cp helper/list_helper.php ~/Documents/Otternova-Repositories/otternova_admin/root/app/Helpers/list_helper.php
-cp helper/form_helper.php ~/Documents/Otternova-Repositories/otternova_admin/root/app/Helpers/form_helper.php
-cp helper/table_helper.php ~/Documents/Otternova-Repositories/otternova_admin/root/app/Helpers/table_helper.php
+# otternova_client, otternova_admin, otternova_mart: all helpers, models, and languages
+for repo in otternova_client otternova_admin otternova_mart; do
+    copy_dir helper    "$REPOS/$repo/root/app/Helpers"
+    copy_dir Models    "$REPOS/$repo/root/app/Models"
+    copy_dir Languages "$REPOS/$repo/root/app/Language"
+done
 
-cp helper/html_helper.php ~/Documents/Otternova-Repositories/otternova_mart/root/app/Helpers/html_helper.php
-cp helper/list_helper.php ~/Documents/Otternova-Repositories/otternova_mart/root/app/Helpers/list_helper.php
-cp helper/form_helper.php ~/Documents/Otternova-Repositories/otternova_mart/root/app/Helpers/form_helper.php
-cp helper/table_helper.php ~/Documents/Otternova-Repositories/otternova_mart/root/app/Helpers/table_helper.php
+# otternova_api: models, languages, and list_helper only
+copy_dir Models    "$REPOS/otternova_api/root/app/Models"
+copy_dir Languages "$REPOS/otternova_api/root/app/Language"
+cp helper/list_helper.php "$REPOS/otternova_api/root/app/Helpers/list_helper.php"
+
+# otternova_www: list_helper only
+cp helper/list_helper.php "$REPOS/otternova_www/root/app/Helpers/list_helper.php"
