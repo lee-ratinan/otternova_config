@@ -1020,7 +1020,7 @@ if (! function_exists('fb_render')) {
     {
         $form = fb_defaults($form);
         $html = '<div class="card" id="' . fb_esc($form['form_id'], 'attr') . '-card">' . fb_header($form)
-            . '<div class="card-body">' . fb_form_open($form) . fb_hidden_fields($form);
+            . '<div class="card-body pt-0">' . fb_form_open($form) . fb_hidden_fields($form);
 
         $showEdit = $form['mode'] !== 'view' || $form['editable'];
         if ($showEdit) {
