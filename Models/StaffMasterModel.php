@@ -75,8 +75,6 @@ class StaffMasterModel extends Model
         'emergency_contact_relation',
         'emergency_contact_telephone',
         'preferred_language',
-        'timezone',
-        'avatar_path',
         'status_message',
         'bio',
         'hr_notes',
@@ -122,9 +120,7 @@ class StaffMasterModel extends Model
         'emergency_contact_name'      => 'permit_empty|max_length[255]',
         'emergency_contact_relation'  => 'permit_empty|max_length[64]',
         'emergency_contact_telephone' => 'permit_empty|max_length[32]',
-        'preferred_language'          => 'permit_empty|max_length[16]',
-        'timezone'                    => 'permit_empty|timezone',
-        'avatar_path'                 => 'permit_empty|max_length[255]',
+        'preferred_language'          => 'permit_empty|max_length[5]|regex_match[/^[a-z]{2,3}(-[A-Z]{2})?$/]', // BCP 47: en-US, th
         'status_message'              => 'permit_empty|max_length[255]',
     ];
     protected $validationMessages   = [];
@@ -174,8 +170,6 @@ class StaffMasterModel extends Model
             'emergency_contact_relation'  => ['type' => 'text'],
             'emergency_contact_telephone' => ['type' => 'tel'],
             'preferred_language'          => ['type' => 'select', 'options' => listLanguages(), 'searchable' => false],
-            'timezone'                    => ['type' => 'select', 'options' => self::timezoneOptions(), 'searchable' => false],
-            'avatar_path'                 => ['type' => 'text', 'orderable' => false, 'searchable' => false],
             'status_message'              => ['type' => 'text'],
             'bio'                         => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
             'hr_notes'                    => ['type' => 'textarea', 'rows' => 4, 'orderable' => false],
@@ -218,5 +212,74 @@ class StaffMasterModel extends Model
     public function findDirectReports(int $managerStaffId): array
     {
         return $this->where('manager_staff_id', $managerStaffId)->findAll();
+    }
+
+    /** How far up the reporting line wouldReportTo() walks before giving up */
+    public const MAX_REPORTING_DEPTH = 50;
+
+    /**
+     * Every staff member with a staff_master row, whatever their status, for the Admin app's Line Manager dropdown.
+     * id is staff_master.id, the value manager_staff_id stores. No password_hash, notes or identity numbers.
+     * @return list<array>
+     */
+    public function listForLookup(): array
+    {
+        $rows = $this->db->table($this->table)
+            ->select('staff_master.id, auth_master.uid, auth_master.full_name, auth_master.email_address, '
+                . 'staff_master.employee_code, staff_master.job_title, staff_master.department_id, auth_master.account_status')
+            ->join('auth_master', 'auth_master.id = staff_master.auth_id', 'inner')
+            ->where('auth_master.account_type', AuthMasterModel::TYPE_STAFF)
+            ->orderBy('auth_master.full_name', 'ASC')
+            ->orderBy('staff_master.id', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        return array_map(static function (array $row) {
+            $row['id']            = (int) $row['id'];
+            $row['department_id'] = (int) $row['department_id'];
+
+            return $row;
+        }, $rows);
+    }
+
+    /**
+     * Whether a staff_master row with this id belongs to a staff account
+     * @param int $id
+     * @return bool
+     */
+    public function isStaffMember(int $id): bool
+    {
+        return $this->db->table($this->table)
+            ->join('auth_master', 'auth_master.id = staff_master.auth_id', 'inner')
+            ->where('staff_master.id', $id)
+            ->where('auth_master.account_type', AuthMasterModel::TYPE_STAFF)
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Whether $staffId is $managerId or somewhere above them in the reporting line, so making $managerId
+     * the line manager of $staffId would close a loop. The walk stops at MAX_REPORTING_DEPTH, and at a loop
+     * already in the data that $staffId is not part of.
+     * @param int $managerId staff_master.id of the proposed line manager
+     * @param int $staffId   staff_master.id of the staff member being changed
+     * @return bool
+     */
+    public function wouldReportTo(int $managerId, int $staffId): bool
+    {
+        $seen    = [];
+        $current = $managerId;
+        for ($depth = 0; $depth < self::MAX_REPORTING_DEPTH && ! isset($seen[$current]); $depth++) {
+            if ($current === $staffId) {
+                return true;
+            }
+            $seen[$current] = true;
+            $row = $this->db->table($this->table)->select('manager_staff_id')->where('id', $current)->get()->getRowArray();
+            if ($row === null || $row['manager_staff_id'] === null) {
+                return false;
+            }
+            $current = (int) $row['manager_staff_id'];
+        }
+
+        return false;
     }
 }
