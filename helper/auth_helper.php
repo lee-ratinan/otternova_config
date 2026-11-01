@@ -18,3 +18,23 @@ if (!function_exists('hasActiveSession')) {
         return true;
     }
 }
+
+if (!function_exists('avatarUrl')) {
+    /**
+     * URL of an avatar from auth_master.avatar_path; the default avatar when none is set.
+     * The single place that decides where uploaded avatars are served from.
+     * @param string|null $avatarPath
+     * @return string
+     */
+    function avatarUrl(?string $avatarPath): string
+    {
+        $avatarPath = trim((string) $avatarPath);
+        if ('' === $avatarPath) {
+            return base_url('assets/img/profile-img.webp');
+        }
+        if (preg_match('#^https?://#i', $avatarPath)) {
+            return $avatarPath;
+        }
+        return base_url(ltrim($avatarPath, '/'));
+    }
+}

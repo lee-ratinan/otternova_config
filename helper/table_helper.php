@@ -45,7 +45,8 @@
  *   'data'       => 'price',             // required: JSON key of the row
  *   'title'      => 'Price',             // default: humanised data
  *   'db'         => 'p.price',           // real column/alias used for search + order (default: data)
- *   'type'       => 'text' | 'html' | 'badge' | 'boolean' | 'number',
+ *   'type'       => 'text' | 'html' | 'badge' | 'boolean' | 'number' | 'datetime',
+ *                   // 'datetime': a UTC value from the API, shown in the viewer's timezone (formatLocalDateTime in main.js)
  *                   // NOTE: 'text' (default) is HTML-escaped; 'html' is inserted as-is, so only send trusted markup.
  *   'orderable'  => true,
  *   'searchable' => true,
@@ -535,6 +536,12 @@ if (! function_exists('lb_script')) {
           var on = d === true || d === 1 || d === '1' || d === 'true';
           return on ? badge(labels['true'] !== undefined ? labels['true'] : 'Yes', 'bg-success')
                     : badge(labels['false'] !== undefined ? labels['false'] : 'No', 'bg-secondary');
+        };
+      case 'datetime':
+        return function (d, type) {
+          if (type !== 'display') { return d; } // sort/search on the raw UTC value
+          if (d === null || d === undefined || d === '') { return ''; }
+          return esc(window.formatLocalDateTime ? window.formatLocalDateTime(d) : d); // viewer's timezone (main.js)
         };
       case 'number':
         return function (d, type) {

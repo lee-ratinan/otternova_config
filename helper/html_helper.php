@@ -132,3 +132,19 @@ if (!function_exists('formatDate')) {
         return date('M j, Y', $time);
     }
 }
+
+if (!function_exists('localTime')) {
+    /**
+     * <time> tag for a UTC datetime from the API; main.js rewrites its text in the viewer's timezone.
+     * The text before that (and without JS) is the UTC value.
+     * @param string|null $utc e.g. '2026-11-01 08:30:00'
+     * @return string
+     */
+    function localTime(?string $utc): string
+    {
+        if (empty($utc)) {
+            return '';
+        }
+        return '<time data-utc datetime="' . esc($utc, 'attr') . '">' . esc($utc) . ' UTC</time>';
+    }
+}
