@@ -23,6 +23,7 @@
  *   'csrf'      => true,                 // true = auto CI4 token, false = disable
  *   'id_prefix' => '',                   // prepended to auto-generated field ids
  *   'layout'    => ['label_col' => 4],   // label column width (Bootstrap 1-11); control = 12 - label_col
+ *   'locale'    => LOCALE,               // view mode: date fields go through formatDate($value, locale)
  *   'urls' => [
  *       'submit' => site_url('products/save'),     // create/edit POST target
  *       'delete' => site_url('products/delete'),
@@ -65,6 +66,7 @@
  *   'checked_value' => '1', 'off_value' => '0',     // single checkbox / switch submitted values
  *   'view_labels' => ['on'=>'Active','off'=>'Inactive'],  // how a single checkbox/switch reads in view mode
  *   'view'        => function ($value, $field) { return strtoupper($value); },  // custom view-mode text
+ *                    // without 'view': 'tel' reads through formatPhoneNumber(), 'date' through formatDate()
  *   'rules'       => 'required|min_length[3]|max_length[50]|valid_email'   // CI4 rule string (or array)
  *   'messages'    => ['required' => 'Please enter a name.'],  // custom messages keyed by rule name
  * ]
@@ -468,6 +470,7 @@ if (! function_exists('fb_defaults')) {
             'csrf'          => true,
             'id_prefix'     => '',
             'layout'        => ['label_col' => 4],
+            'locale'        => null,
             'urls'          => ['submit' => '', 'delete' => '', 'edit' => '#', 'list' => '', 'after_save' => '', 'after_delete' => ''],
             'labels'        => ['reset' => 'Reset', 'save' => 'Save Change', 'edit' => 'Edit', 'delete' => 'Delete', 'cancel' => 'Cancel'],
             'messages'      => [
@@ -533,6 +536,7 @@ if (! function_exists('fb_field')) {
         $base = preg_replace('/\[\]$/', '', $name);
 
         $f['name']     = $base;
+        $f['locale']   = $f['locale'] ?? $form['locale'];
         $f['label']    = (string) ($f['label'] ?? fb_humanize($base));
         $f['id']       = (string) ($f['id'] ?? ($form['id_prefix'] . preg_replace('/[^A-Za-z0-9_\-]/', '_', $base)));
         $f['options']  = fb_options($f['options'] ?? []);
@@ -619,12 +623,15 @@ if (! function_exists('fb_field')) {
 }
 
 if (! function_exists('fb_fields')) {
-    /** All normalised items (inputs + headings/dividers/html) visible in a pane. */
-    function fb_fields(array $form, string $pane = 'edit'): array
+    /**
+     * All normalized items (inputs + headings/dividers/html) visible in a pane.
+     * $fields limits it to a subset (e.g. one card of a multi-card form); default = $form['fields'].
+     */
+    function fb_fields(array $form, string $pane = 'edit', ?array $fields = null): array
     {
         $form = fb_defaults($form);
         $out  = [];
-        foreach ((array) $form['fields'] as $f) {
+        foreach ($fields ?? (array) $form['fields'] as $f) {
             $n = fb_field((array) $f, $form, $pane);
             if ($n !== null) {
                 $out[] = $n;
@@ -883,6 +890,10 @@ if (! function_exists('fb_view_value')) {
                 return '<span class="d-inline-block border rounded align-middle me-2" style="width:1.25rem;height:1.25rem;background:' . $swatch . '"></span>' . fb_esc($text);
             case 'textarea':
                 return nl2br(fb_esc($text));
+            case 'tel':
+                return fb_esc(function_exists('formatPhoneNumber') ? formatPhoneNumber($text) : $text);
+            case 'date':
+                return fb_esc(function_exists('formatDate') ? (string) formatDate($text, $f['locale']) : $text);
             case 'email':
                 return '<a href="mailto:' . fb_esc($text, 'attr') . '">' . fb_esc($text) . '</a>';
             case 'url':
@@ -912,13 +923,16 @@ if (! function_exists('fb_view_row')) {
 // ---------------------------------------------------------------------------------------------
 
 if (! function_exists('fb_rows')) {
-    /** All rows of a pane ('edit' or 'view'), including headings / dividers / raw html. */
-    function fb_rows(array $form, string $pane = 'edit'): string
+    /**
+     * All rows of a pane ('edit' or 'view'), including headings / dividers / raw html.
+     * $fields renders only that subset; it must also be in $form['fields'] so fb_script() validates it.
+     */
+    function fb_rows(array $form, string $pane = 'edit', ?array $fields = null): string
     {
         $form = fb_defaults($form);
         $col  = $form['layout']['label_col'];
         $html = '';
-        foreach (fb_fields($form, $pane) as $f) {
+        foreach (fb_fields($form, $pane, $fields) as $f) {
             switch ($f['type']) {
                 case 'heading':
                     $html .= '<div class="row mb-2 mt-4"><div class="col-sm-' . (12 - $col) . ' offset-sm-' . $col . '"><h6 class="text-uppercase text-muted mb-0">'
@@ -974,9 +988,12 @@ if (! function_exists('fb_buttons_view')) {
 }
 
 if (! function_exists('fb_header')) {
-    function fb_header(array $form): string
+    /** Card header from the form title/subtitle; pass $title/$subtitle for the header of another card. */
+    function fb_header(array $form, ?string $title = null, ?string $subtitle = null): string
     {
         $form = fb_defaults($form);
+        $form['title']    = $title ?? $form['title'];
+        $form['subtitle'] = $subtitle ?? $form['subtitle'];
 
         return '<div class="card-header"><h5 class="card-title">' . fb_esc($form['title']) . '</h5>'
             . ($form['subtitle'] !== '' ? '<p class="card-subtitle">' . fb_esc($form['subtitle']) . '</p>' : '')
