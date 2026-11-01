@@ -48,6 +48,36 @@ if (!function_exists('formatCurrency')) {
     }
 }
 
+if (!function_exists('formatPhoneNumberStandard')) {
+    /**
+     * Format phone number to the E.164 standard, i.e. 0812345678 with TH -> +66812345678
+     * @param string $phoneNumber
+     * @param string $countryCode ISO 3166-1 alpha-2 code, i.e. TH
+     * @return string|false
+     */
+    function formatPhoneNumberStandard(string $phoneNumber, string $countryCode): string
+    {
+        $phoneUtil = PhoneNumberUtil::getInstance();
+        $countries = listSupportedCountries();
+        if (!isset($countries[$countryCode])) {
+            // Not supported country code
+            log_message('debug', 'Not supported country code: ' . $countryCode);
+            return false;
+        }
+        try {
+            // $countryCode is only used when $phoneNumber does not already start with '+'
+            $numberProto = $phoneUtil->parse($phoneNumber, strtoupper($countryCode));
+            if ($phoneUtil->isValidNumber($numberProto)) {
+                return $phoneUtil->format($numberProto, PhoneNumberFormat::E164);
+            }
+        } catch (NumberParseException $e) {
+            log_message('debug', 'Phone parsing failed: ' . $e->getMessage());
+        }
+        // Return false if parsing fails
+        return false;
+    }
+}
+
 if (!function_exists('formatPhoneNumber')) {
     /**
      * Format phone number for showing on the screen
