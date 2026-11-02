@@ -137,6 +137,28 @@ class AuthAccountModel extends AuthMasterModel
     /** auth_master columns the account form shows but never writes; the avatar upload sets avatar_path */
     public const FORM_ACCOUNT_READONLY = ['avatar_path'];
 
+    /** /staff/account/update modes: an admin editing any account, or the signed-in staff member editing their own */
+    public const MODE_ADMIN_EDIT = 'admin-edit';
+    public const MODE_SELF_EDIT  = 'self-edit';
+
+    /**
+     * Fields a self-edit never writes (on top of uid, email_address and account_type, which no update changes):
+     * auth_master columns, and the profile columns per account_type
+     */
+    public const SELF_EDIT_LOCKED_ACCOUNT  = ['password_expiry', 'account_status', 'admin_notes'];
+    public const SELF_EDIT_LOCKED_PROFILES = [
+        self::TYPE_STAFF  => [
+            'employee_code', 'job_title', 'department_id', 'manager_staff_id', 'employment_type', 'employment_status',
+            'employment_start_date', 'probation_end_date', 'employment_end_date', 'work_country_code',
+            'work_email_address', 'work_telephone_number', 'legal_first_name', 'legal_middle_name', 'legal_last_name',
+            'national_id_type', 'national_id_number', 'tax_id_number', 'hr_notes',
+        ],
+        self::TYPE_CLIENT => [
+            'legal_first_name', 'legal_middle_name', 'legal_last_name', 'national_id_type', 'national_id_number',
+            'internal_notes',
+        ],
+    ];
+
     /**
      * account_type => profile table of the account form: its model (for the validation rules), its columns but
      * id, auth_id and the timestamps, and which of those may be NULL
@@ -231,6 +253,35 @@ class AuthAccountModel extends AuthMasterModel
     }
 
     /**
+     * Create a signed-up client: a pending (P) auth_master row, its client_master row and its activation link,
+     * in one transaction, logged to log_activity in it as done by the new account itself
+     * @param array $account   Checked auth_master columns, uid and password_hash included
+     * @param array $profile   Checked client_master columns, without auth_id
+     * @param int   $expiresAt When the activation link expires, Unix seconds
+     * @return string The token for the activation link
+     * @throws Throwable When a write fails (such as the email address being taken meanwhile); nothing is written then
+     */
+    public function createPendingClient(array $account, array $profile, int $expiresAt): string
+    {
+        $table   = self::FORM_PROFILES[self::TYPE_CLIENT]['table'];
+        $log     = new ActivityLog();
+        $account = ['account_type' => self::TYPE_CLIENT, 'account_status' => self::STATUS_PENDING] + $account;
+        $crypt   = new FieldEncryption();
+
+        return $this->inTransaction(function () use ($account, $profile, $expiresAt, $table, $log, $crypt) {
+            $this->db->table($this->table)->insert($account);
+            $id = (int) $this->db->insertID();
+            $log->inserted($id, 'Signed up as client ' . $account['uid'], $this->table, $id, $account);
+
+            $row = $profile + ['auth_id' => $id];
+            $this->db->table($table)->insert($crypt->encryptRow($table, $row));
+            $log->inserted($id, 'Created client profile of ' . $account['uid'], $table, (int) $this->db->insertID(), $row);
+
+            return model(AuthActivationModel::class)->insertActivation($id, $expiresAt, $log);
+        });
+    }
+
+    /**
      * Update an account and insert or update its profile row in one transaction, logged to log_activity in it.
      * Only the columns whose value changes are written and logged; encrypted columns are compared as plaintext.
      * @param array $record  findForForm(); its account_type picks the profile table
@@ -276,7 +327,7 @@ class AuthAccountModel extends AuthMasterModel
     }
 
     /**
-     * Delete an account, its profile row and its pending OTP challenges in one transaction, logged to
+     * Delete an account, its profile row and its pending challenges and activation links in one transaction, logged to
      * log_activity in it. Refused when it is the last active staff account, checked inside the transaction
      * so two staff deleting each other at the same time cannot both succeed.
      * @param array $record  findForForm()
@@ -328,6 +379,15 @@ class AuthAccountModel extends AuthMasterModel
             foreach ($changes as $change) {
                 $this->db->table('auth_password_change')->where('id', $change['id'])->delete();
                 $log->deleted($actorId, 'Deleted password change challenge of ' . $stored['uid'], 'auth_password_change', (int) $change['id'], $change);
+            }
+            $activations = $this->db->table('auth_activation')
+                ->select('id, auth_id, expires_at')
+                ->where('auth_id', $id)
+                ->get()
+                ->getResultArray();
+            foreach ($activations as $activation) {
+                $this->db->table('auth_activation')->where('id', $activation['id'])->delete();
+                $log->deleted($actorId, 'Deleted activation link of ' . $stored['uid'], 'auth_activation', (int) $activation['id'], $activation);
             }
             $this->db->table($this->table)->where('id', $id)->delete();
             $log->deleted($actorId, 'Deleted account ' . $stored['uid'], $this->table, $id, $stored);
