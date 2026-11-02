@@ -32,8 +32,10 @@
  *       'after_save'   => '',            // redirect after save ('' = reload; create mode = reset form)
  *       'after_delete' => '',            // redirect after delete (falls back to urls.list)
  *   ],
- *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel'],
- *   'messages' => ['saved'=>..., 'saveFailed'=>..., 'deleted'=>..., 'deleteFailed'=>..., 'confirmDelete'=>..., 'fixErrors'=>...],
+ *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel','upload'=>'Upload'],
+ *   'messages' => ['saved'=>..., 'saveFailed'=>..., 'deleted'=>..., 'deleteFailed'=>..., 'confirmDelete'=>..., 'fixErrors'=>...,
+ *                  'uploaded'=>..., 'uploadFailed'=>..., 'converting'=>..., 'convertFailed'=>...],
+ *   'heic_decoder' => base_url('assets/vendor/heic2any/heic2any.min.js'),  // loaded only when a HEIC file is picked
  *   'values'   => ['name' => 'Foo', 'tags' => ['a','b'], 'is_active' => 1],   // saved values (edit/view)
  *   'fields'   => [ <field>, <field>, ... ],
  * ]
@@ -43,7 +45,7 @@
  *   'name'  => 'category_id',            // required (not for heading/divider/html)
  *   'type'  => 'text' | 'email' | 'password' | 'number' | 'range' | 'date' | 'datetime-local' | 'time'
  *            | 'month' | 'week' | 'color' | 'tel' | 'url' | 'search' | 'hidden'
- *            | 'textarea' | 'select' | 'radio' | 'checkbox' | 'switch'
+ *            | 'textarea' | 'select' | 'radio' | 'checkbox' | 'switch' | 'file'
  *            | 'heading' (label) | 'divider' | 'html' (html => raw markup)
  *   'id'          => 'category_id',      // default: id_prefix + name
  *   'label'       => 'Category',         // default: humanised name
@@ -69,7 +71,21 @@
  *                    // without 'view': 'tel' reads through formatPhoneNumber(), 'date' through formatDate()
  *   'rules'       => 'required|min_length[3]|max_length[50]|valid_email'   // CI4 rule string (or array)
  *   'messages'    => ['required' => 'Please enter a name.'],  // custom messages keyed by rule name
+ *
+ *   file only:
+ *   'accept'      => 'image/*',          // default; image fields also accept .heic/.heif, converted before upload
+ *   'types'       => ['image/jpeg','image/png','image/webp'],  // MIME types that may be sent (default for images)
+ *   'max_size'    => 2097152,            // bytes, checked after any conversion (default 2MB)
+ *   'max_size_label' => '2MB',           // how max_size reads in the error message
+ *   'preview'     => 'https://.../avatar.webp',  // thumbnail shown beside the input ('' = empty box)
+ *   'help'        => 'JPG, PNG or WEBP. Max size 2MB',  // default for images
  * ]
+ *
+ * UPLOAD FORMS: a form with a 'file' field is a stand-alone upload form. It always opens in edit mode
+ * (no view pane), is sent as multipart/form-data with its hidden fields (e.g. used-for, image-name and the
+ * id field), and its submit button reads "Upload". HEIC/HEIF images are converted to WebP in the browser
+ * (JPEG where the browser cannot encode WebP) before they are sent. After a successful upload the page stays,
+ * and the thumbnail shows the response's 'url' (or the uploaded file).
  *
  * The same `rules` strings are used on the client (JS) and by fb_server_validation() on the server.
  */
@@ -357,8 +373,8 @@ if (! function_exists('fb_server_validation')) {
         ];
 
         foreach (fb_fields($form, 'edit') as $f) {
-            if (! fb_is_input($f) || $f['type'] === 'hidden' || ! empty($f['attrs']['disabled']) || ! empty($f['attrs']['readonly'])) {
-                continue;
+            if (! fb_is_input($f) || in_array($f['type'], ['hidden', 'file'], true) || ! empty($f['attrs']['disabled']) || ! empty($f['attrs']['readonly'])) {
+                continue; // a file is not in the POST data; check it with $this->request->getFile()
             }
             $parts = fb_rule_strings($f['rules'] ?? []);
             $has   = static function (string $n) use (&$parts): bool {
@@ -472,7 +488,7 @@ if (! function_exists('fb_defaults')) {
             'layout'        => ['label_col' => 4],
             'locale'        => null,
             'urls'          => ['submit' => '', 'delete' => '', 'edit' => '#', 'list' => '', 'after_save' => '', 'after_delete' => ''],
-            'labels'        => ['reset' => 'Reset', 'save' => 'Save Change', 'edit' => 'Edit', 'delete' => 'Delete', 'cancel' => 'Cancel'],
+            'labels'        => ['reset' => 'Reset', 'save' => 'Save Change', 'edit' => 'Edit', 'delete' => 'Delete', 'cancel' => 'Cancel', 'upload' => 'Upload'],
             'messages'      => [
                 'saved'         => 'Saved successfully.',
                 'saveFailed'    => 'Could not save. Please try again.',
@@ -480,12 +496,22 @@ if (! function_exists('fb_defaults')) {
                 'deleteFailed'  => 'Could not delete. Please try again.',
                 'confirmDelete' => 'Are you sure you want to delete this record? This cannot be undone.',
                 'fixErrors'     => 'Please correct the following:',
+                'uploaded'      => 'Uploaded successfully.',
+                'uploadFailed'  => 'Could not upload. Please try again.',
+                'converting'    => 'Converting the image...',
+                'convertFailed' => 'Could not read this image. Please choose a JPG, PNG or WEBP file.',
             ],
+            'heic_decoder'  => function_exists('base_url') ? base_url('assets/vendor/heic2any/heic2any.min.js') : '',
             'values'        => [],
             'fields'        => [],
         ], $form);
 
         $form['mode']      = in_array($form['mode'], ['create', 'edit', 'view'], true) ? $form['mode'] : 'create';
+        // a form with a file field is a stand-alone upload form: always edit mode, nothing to view
+        $form['upload']    = in_array('file', array_map(static fn ($f) => strtolower((string) ($f['type'] ?? 'text')), (array) $form['fields']), true);
+        if ($form['upload']) {
+            $form['mode'] = 'edit';
+        }
         $form['edit_mode'] = $form['mode'] === 'create' ? 'create' : 'edit';
         $form['method']    = strtoupper((string) $form['method']);
         $form['form_id']   = preg_replace('/[^A-Za-z0-9_\-]/', '_', (string) $form['form_id']);
@@ -615,6 +641,18 @@ if (! function_exists('fb_field')) {
             $rules['numeric'] = true;
         }
 
+        if ($type === 'file') {
+            $image          = str_starts_with((string) ($f['accept'] ?? 'image/*'), 'image/');
+            $f['accept']    = (string) ($f['accept'] ?? 'image/*');
+            $f['types']     = (array) ($f['types'] ?? ($image ? ['image/jpeg', 'image/png', 'image/webp'] : []));
+            $f['heic']      = $image; // HEIC/HEIF is converted in the browser, so the picker offers it too
+            $f['max_size']  = (int) ($f['max_size'] ?? 2 * 1024 * 1024);
+            $f['max_size_label'] = (string) ($f['max_size_label'] ?? round($f['max_size'] / 1048576, 1) . 'MB');
+            $f['help']      = $f['help'] ?? ($image ? 'JPG, PNG or WEBP. Max size ' . $f['max_size_label'] : '');
+            $f['preview']   = (string) ($f['preview'] ?? '');
+            $a['accept']    = $f['accept'] . ($f['heic'] ? ',.heic,.heif' : '');
+        }
+
         $f['attrs']        = $a;
         $f['rules_client'] = $rules;
 
@@ -664,7 +702,7 @@ if (! function_exists('fb_input')) {
     {
         $type  = $f['type'];
         $attrs = ['type' => $type] + fb_control_attrs($f, $type === 'range' ? 'form-range' : 'form-control');
-        if ($type !== 'password') {
+        if ($type !== 'password' && $type !== 'file') {
             $attrs['value'] = fb_input_value($f);
         }
 
@@ -821,12 +859,32 @@ if (! function_exists('fb_error_slot')) {
     }
 }
 
+if (! function_exists('fb_file_row')) {
+    /** A file input with its thumbnail box (label above, not in the label column), for upload forms. */
+    function fb_file_row(array $f): string
+    {
+        $img = $f['preview'] !== ''
+            ? '<img src="' . fb_esc($f['preview'], 'attr') . '" alt="" class="rounded-2" style="width: 64px; height: 64px; object-fit: cover;">'
+            : '';
+
+        return '<div class="mb-0' . (! empty($f['row_class']) ? ' ' . fb_esc($f['row_class'], 'attr') : '') . '" data-fb-row="' . fb_esc($f['name'], 'attr') . '">'
+            . '<label class="form-label' . (! empty($f['rules_client']['required']) ? ' required' : '') . '" for="' . fb_esc($f['id'], 'attr') . '">' . fb_esc($f['label']) . '</label>'
+            . '<div class="d-flex align-items-center gap-3">'
+            . '<div class="rounded-2 bg-light d-flex align-items-center justify-content-center" style="width: 64px; height: 64px;" data-fb-preview="' . fb_esc($f['name'], 'attr') . '">' . $img . '</div>'
+            . '<div class="flex-grow-1">' . fb_input($f) . fb_error_slot($f) . fb_help($f) . '</div>'
+            . '</div></div>';
+    }
+}
+
 if (! function_exists('fb_edit_row')) {
     /** One full row (label + control + help + error slot) in create/edit mode. */
     function fb_edit_row(array $f, array $form): string
     {
         if ($f['type'] === 'hidden') {
             return fb_input($f);
+        }
+        if ($f['type'] === 'file') {
+            return fb_file_row($f);
         }
         $form    = fb_defaults($form);
         $col     = 12 - $form['layout']['label_col'];
@@ -874,6 +932,12 @@ if (! function_exists('fb_view_value')) {
             }
 
             return $out ? implode(', ', $out) : $empty;
+        }
+
+        if ($f['type'] === 'file') {
+            return $f['preview'] !== ''
+                ? '<img src="' . fb_esc($f['preview'], 'attr') . '" alt="" class="rounded-2" style="width: 64px; height: 64px; object-fit: cover;">'
+                : $empty;
         }
 
         $text = fb_input_value($f);
@@ -965,7 +1029,7 @@ if (! function_exists('fb_buttons_edit')) {
             $html .= '<button type="button" class="btn btn-outline-secondary me-2" data-fb-action="cancel">' . fb_esc($l['cancel']) . '</button>';
         }
 
-        return $html . '<button type="submit" class="btn btn-primary"><i class="bi bi-floppy"></i> ' . fb_esc($l['save']) . '</button></div></div>';
+        return $html . '<button type="submit" class="btn btn-primary"><i class="bi bi-floppy"></i> ' . fb_esc($form['upload'] ? $l['upload'] : $l['save']) . '</button></div></div>';
     }
 }
 
@@ -1002,11 +1066,11 @@ if (! function_exists('fb_header')) {
 }
 
 if (! function_exists('fb_hidden_fields')) {
-    /** PK hidden input (id="id" by default) + CSRF token. */
+    /** PK hidden input (id = id_prefix + id_field, "id" by default) + CSRF token. */
     function fb_hidden_fields(array $form): string
     {
         $form = fb_defaults($form);
-        $html = '<input type="hidden" id="' . fb_esc($form['id_field'], 'attr') . '" name="' . fb_esc($form['id_field'], 'attr') . '" value="' . fb_esc($form['id'], 'attr') . '" />';
+        $html = '<input type="hidden" id="' . fb_esc($form['id_prefix'] . $form['id_field'], 'attr') . '" name="' . fb_esc($form['id_field'], 'attr') . '" value="' . fb_esc($form['id'], 'attr') . '" />';
         if ($form['csrf']) {
             $html .= '<input type="hidden" data-fb-csrf name="' . fb_esc($form['csrf']['name'], 'attr') . '" value="' . fb_esc($form['csrf']['hash'], 'attr') . '" />';
         }
@@ -1021,7 +1085,7 @@ if (! function_exists('fb_form_open')) {
         $form = fb_defaults($form);
 
         return '<form id="' . fb_esc($form['form_id'], 'attr') . '" method="post" action="' . fb_esc($form['urls']['submit'], 'attr')
-            . '" novalidate data-fb-mode="' . $form['mode'] . '">';
+            . '"' . ($form['upload'] ? ' enctype="multipart/form-data"' : '') . ' novalidate data-fb-mode="' . $form['mode'] . '">';
     }
 }
 
@@ -1078,7 +1142,12 @@ if (! function_exists('fb_script')) {
                 'optionValues' => array_column($f['options'], 'value'),
                 'rules'        => (object) $f['rules_client'],
                 'messages'     => (object) ($f['messages'] ?? []),
-            ];
+            ] + ($f['type'] === 'file' ? [
+                'types'        => $f['types'],
+                'heic'         => $f['heic'],
+                'maxSize'      => $f['max_size'],
+                'maxSizeLabel' => $f['max_size_label'],
+            ] : []);
         }
 
         $cfg = [
@@ -1097,6 +1166,8 @@ if (! function_exists('fb_script')) {
             ],
             'csrf'         => $form['csrf'] ? ['name' => $form['csrf']['name'], 'header' => $form['csrf']['header']] : null,
             'messages'     => $form['messages'],
+            'upload'       => $form['upload'],
+            'heicDecoder'  => $form['heic_decoder'],
             'fields'       => $fields,
         ];
 
@@ -1130,8 +1201,59 @@ if (! function_exists('fb_script')) {
     pattern: '{label} format is invalid.',
     regex: '{label} format is invalid.',
     in_list: '{label} has an invalid selection.',
-    matches: '{label} does not match {param}.'
+    matches: '{label} does not match {param}.',
+    file_type: '{label} must be a JPG, PNG or WEBP image.',
+    file_size: '{label} must be {param} or smaller.'
   };
+
+  // ---- HEIC / HEIF: converted to WebP before upload, as the server only takes JPEG, PNG and WebP ----
+  var HEIC_MAX_SIDE = 2048; // phone photos are far larger than any use here; this keeps the result small
+  var scripts = {};
+
+  function isHeic(file) {
+    return /^image\/hei[cf](-sequence)?$/i.test(file.type) || /\.hei[cf]$/i.test(file.name);
+  }
+
+  function loadScript(src) {
+    if (!scripts[src]) {
+      scripts[src] = new Promise(function (resolve, reject) {
+        var s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = function () { delete scripts[src]; reject(new Error('Could not load ' + src)); };
+        document.head.appendChild(s);
+      });
+    }
+    return scripts[src];
+  }
+
+  async function decodeHeic(file, decoderUrl) {
+    // browsers that read HEIC themselves (Safari) need no decoder
+    try { return await createImageBitmap(file); } catch (e) {}
+    await loadScript(decoderUrl);
+    var png = await window.heic2any({ blob: file, toType: 'image/png' });
+    return createImageBitmap(Array.isArray(png) ? png[0] : png);
+  }
+
+  function canvasBlob(canvas, type) {
+    return new Promise(function (resolve) { canvas.toBlob(resolve, type, 0.9); });
+  }
+
+  async function heicToWebp(file, decoderUrl) {
+    var bmp = await decodeHeic(file, decoderUrl);
+    var scale = Math.min(1, HEIC_MAX_SIDE / Math.max(bmp.width, bmp.height));
+    var canvas = document.createElement('canvas');
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext('2d').drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    if (bmp.close) { bmp.close(); }
+    var blob = await canvasBlob(canvas, 'image/webp');
+    // a browser that cannot encode WebP (Safari) returns a PNG instead; JPEG is much smaller then
+    if (!blob || blob.type !== 'image/webp') { blob = await canvasBlob(canvas, 'image/jpeg'); }
+    if (!blob) { throw new Error('The image could not be converted'); }
+    var ext = blob.type === 'image/webp' ? '.webp' : '.jpg';
+    return new File([blob], file.name.replace(/\.[^.]*$/, '') + ext, { type: blob.type });
+  }
 
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) {
@@ -1164,6 +1286,14 @@ if (! function_exists('fb_script')) {
     cfg.fields.forEach(function (f) { fields[f.name] = f; });
     var busy = false;
     var mode = cfg.mode === 'view' ? 'view' : 'edit';
+    // file fields: the file to send (after any HEIC conversion), its pending conversion, and the saved thumbnail
+    var prepared = {};
+    var preparing = {};
+    var previews = {};
+    form.querySelectorAll('[data-fb-preview]').forEach(function (box) {
+      var img = box.querySelector('img');
+      previews[box.getAttribute('data-fb-preview')] = img ? img.getAttribute('src') : '';
+    });
 
     function els(f) {
       return Array.prototype.slice.call(form.querySelectorAll('[name="' + CSS.escape(f.inputName) + '"]'));
@@ -1178,6 +1308,7 @@ if (! function_exists('fb_script')) {
     function getValue(f) {
       var list = els(f);
       if (!list.length) { return ''; }
+      if (f.type === 'file') { return prepared[f.name] ? prepared[f.name].name : ''; }
       if (f.single) { return list[0].checked ? list[0].value : ''; }
       if (f.type === 'radio') {
         var c = list.filter(function (e) { return e.checked; })[0];
@@ -1210,6 +1341,12 @@ if (! function_exists('fb_script')) {
 
       if (r.required && empty) { return msg(f, 'required'); }
       if (empty) { return ''; }
+      if (f.type === 'file') {
+        var file = prepared[f.name];
+        if (f.types.length && f.types.indexOf(file.type) === -1) { return msg(f, 'file_type'); }
+        if (f.maxSize && file.size > f.maxSize) { return msg(f, 'file_size', f.maxSizeLabel); }
+        return '';
+      }
 
       // The submitted value must be one of the configured option values (labels are display-only).
       var items = multi ? v : [v];
@@ -1322,6 +1459,47 @@ if (! function_exists('fb_script')) {
       return out;
     }
 
+    // ---- file fields ---------------------------------------------------------------------
+    function setPreview(f, src) {
+      var box = form.querySelector('[data-fb-preview="' + CSS.escape(f.name) + '"]');
+      if (!box) { return; }
+      var img = box.querySelector('img');
+      if (!src) { if (img) { img.remove(); } return; }
+      if (!img) {
+        img = document.createElement('img');
+        img.alt = '';
+        img.className = 'rounded-2';
+        img.style.cssText = 'width: 64px; height: 64px; object-fit: cover;';
+        box.appendChild(img);
+      }
+      img.src = src;
+    }
+
+    // keeps the picked file ready to send: HEIC/HEIF is converted first, and the thumbnail shows the result
+    async function prepareFile(f) {
+      var input = els(f)[0];
+      var file = input && input.files && input.files[0];
+      delete prepared[f.name];
+      if (!file) { setPreview(f, previews[f.name]); return; }
+      if (f.heic && isHeic(file)) {
+        notify('info', esc(cfg.messages.converting));
+        try {
+          file = await heicToWebp(file, cfg.heicDecoder);
+        } catch (err) {
+          if (window.console) { console.warn('HEIC conversion failed', err); }
+          input.value = '';
+          setPreview(f, previews[f.name]);
+          throw new Error(cfg.messages.convertFailed);
+        }
+      }
+      prepared[f.name] = file;
+      setPreview(f, /^image\//.test(file.type) ? URL.createObjectURL(file) : previews[f.name]);
+    }
+
+    function fileFields() {
+      return cfg.fields.filter(function (f) { return f.type === 'file'; });
+    }
+
     // ---- mode switching ----------------------------------------------------------------
     function setMode(next) {
       var editPane = form.querySelector('[data-fb-pane="edit"]');
@@ -1337,9 +1515,14 @@ if (! function_exists('fb_script')) {
     }
 
     // ---- 1. validate on change ---------------------------------------------------------
-    form.addEventListener('change', function (e) {
+    form.addEventListener('change', async function (e) {
       var f = fieldOf(e.target);
       if (!f || mode !== 'edit') { return; }
+      if (f.type === 'file') {
+        preparing[f.name] = prepareFile(f);
+        try { await preparing[f.name]; } catch (err) { showError(f, err.message); notify('error', esc(err.message)); return; }
+        finally { delete preparing[f.name]; }
+      }
       var m = validateField(f);
       showError(f, m);
       if (m) { notify('error', esc(m)); }
@@ -1355,6 +1538,8 @@ if (! function_exists('fb_script')) {
       e.preventDefault();
       if (busy) { return; }
 
+      // a HEIC conversion still running is waited for, so the converted file is the one sent
+      try { await Promise.all(Object.keys(preparing).map(function (k) { return preparing[k]; })); } catch (err) { return; }
       var errors = validateAll();
       if (errors.length) {
         notify('error', errors.map(function (x) { return esc(x.message); }).join('<br>'), cfg.messages.fixErrors);
@@ -1370,12 +1555,26 @@ if (! function_exists('fb_script')) {
           if (el && !el.disabled && !el.checked) { body.set(f.inputName, f.offValue); }
         }
       });
+      fileFields().forEach(function (f) {
+        if (prepared[f.name]) { body.set(f.inputName, prepared[f.name], prepared[f.name].name); }
+      });
       if (cfg.method !== 'POST') { body.set('_method', cfg.method); }
 
       setBusy(true);
       try {
         var r = await send(cfg.urls.submit || form.getAttribute('action') || window.location.href, body);
-        if (r.ok) {
+        if (r.ok && cfg.upload) {
+          // the page stays: the thumbnail becomes the saved image and the input is emptied for the next one
+          notify('success', esc(r.data.message || cfg.messages.uploaded));
+          fileFields().forEach(function (f) {
+            if (prepared[f.name]) { previews[f.name] = r.data.url || previews[f.name]; }
+          });
+          form.reset();
+          form.dispatchEvent(new CustomEvent('fb:saved', { bubbles: true, detail: r.data }));
+          if (r.data.redirect || cfg.urls.afterSave) {
+            setTimeout(function () { window.location.href = r.data.redirect || cfg.urls.afterSave; }, 800);
+          }
+        } else if (r.ok) {
           notify('success', esc(r.data.message || cfg.messages.saved));
           form.dispatchEvent(new CustomEvent('fb:saved', { bubbles: true, detail: r.data }));
           var to = r.data.redirect || cfg.urls.afterSave;
@@ -1386,11 +1585,11 @@ if (! function_exists('fb_script')) {
           }, 800);
         } else {
           var list = r.data.errors ? applyServerErrors(r.data.errors) : [];
-          if (!list.length) { list = [r.data.message || cfg.messages.saveFailed]; }
+          if (!list.length) { list = [r.data.message || (cfg.upload ? cfg.messages.uploadFailed : cfg.messages.saveFailed)]; }
           notify('error', list.map(esc).join('<br>'), r.data.errors ? cfg.messages.fixErrors : '');
         }
       } catch (err) {
-        notify('error', esc(cfg.messages.saveFailed));
+        notify('error', esc(cfg.upload ? cfg.messages.uploadFailed : cfg.messages.saveFailed));
       } finally {
         setBusy(false);
       }
@@ -1454,7 +1653,10 @@ if (! function_exists('fb_script')) {
     });
 
     // ---- 5. reset: restore the original values (native reset uses the rendered defaults) ----
-    form.addEventListener('reset', function () { setTimeout(clearErrors, 0); });
+    form.addEventListener('reset', function () {
+      fileFields().forEach(function (f) { delete prepared[f.name]; setPreview(f, previews[f.name]); });
+      setTimeout(clearErrors, 0);
+    });
 
     // Public handle, e.g. window.FormBuilder['fb-form'].validateAll()
     window.FormBuilder = window.FormBuilder || {};
