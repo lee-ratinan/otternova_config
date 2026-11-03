@@ -35,6 +35,10 @@ class OtternovaLedgerCounterpartyModel extends Model
         'counterparty_name'        => 'required|max_length[255]',
         'counterparty_description' => 'permit_empty|max_length[65535]',
     ];
+
+    /** public_id: CHAR(8), see PublicIdTrait */
+    protected int $publicIdLength = 8;
+    protected $beforeInsert       = ['fillPublicId'];
     protected $validationMessages   = [];
     protected $skipValidation       = false;
     protected $cleanValidationRules = true;
@@ -56,17 +60,15 @@ class OtternovaLedgerCounterpartyModel extends Model
 
     /**
      * Every counterparty, by name, for the ledger's counterparty list and dropdowns
-     * @return list<array{id: int, counterparty_name: string, counterparty_description: string|null}>
+     * @return list<array{public_id: string, counterparty_name: string, counterparty_description: string|null}>
      */
     public function listForLookup(): array
     {
-        $rows = $this->db->table($this->table)
-            ->select('id, counterparty_name, counterparty_description')
+        return $this->db->table($this->table)
+            ->select('public_id, counterparty_name, counterparty_description')
             ->orderBy('counterparty_name', 'ASC')
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
-
-        return array_map(static fn (array $row) => ['id' => (int) $row['id']] + $row, $rows);
     }
 }

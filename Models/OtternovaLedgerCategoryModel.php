@@ -35,6 +35,10 @@ class OtternovaLedgerCategoryModel extends Model
         'category_code' => 'required|regex_match[/^[A-Z0-9]{3}$/]|is_unique[otternova_ledger_category.category_code,id,{id}]', // e.g. INF
         'category_name' => 'required|max_length[128]',
     ];
+
+    /** public_id: CHAR(4), see PublicIdTrait */
+    protected int $publicIdLength = 4;
+    protected $beforeInsert       = ['fillPublicId'];
     protected $validationMessages   = [];
     protected $skipValidation       = false;
     protected $cleanValidationRules = true;
@@ -56,17 +60,15 @@ class OtternovaLedgerCategoryModel extends Model
 
     /**
      * Every category, by name, for the ledger's category list and dropdowns
-     * @return list<array{id: int, category_code: string, category_name: string}>
+     * @return list<array{public_id: string, category_code: string, category_name: string}>
      */
     public function listForLookup(): array
     {
-        $rows = $this->db->table($this->table)
-            ->select('id, category_code, category_name')
+        return $this->db->table($this->table)
+            ->select('public_id, category_code, category_name')
             ->orderBy('category_name', 'ASC')
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
-
-        return array_map(static fn (array $row) => ['id' => (int) $row['id']] + $row, $rows);
     }
 }

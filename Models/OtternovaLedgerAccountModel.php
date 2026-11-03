@@ -41,6 +41,10 @@ class OtternovaLedgerAccountModel extends Model
         'currency_code' => 'required|regex_match[/^[A-Z]{3}$/]', // any ISO 4217 code: bills come in currencies OtterNova does not sell in
         'account_class' => 'permit_empty|in_list[A,L,E,R,X]',
     ];
+
+    /** public_id: CHAR(4), see PublicIdTrait */
+    protected int $publicIdLength = 4;
+    protected $beforeInsert       = ['fillPublicId'];
     protected $validationMessages   = [];
     protected $skipValidation       = false;
     protected $cleanValidationRules = true;
@@ -68,17 +72,15 @@ class OtternovaLedgerAccountModel extends Model
 
     /**
      * Every account, by name, for the ledger's account list and dropdowns
-     * @return list<array{id: int, account_name: string, account_type: string, currency_code: string, account_class: string|null}>
+     * @return list<array{public_id: string, account_name: string, account_type: string, currency_code: string, account_class: string|null}>
      */
     public function listForLookup(): array
     {
-        $rows = $this->db->table($this->table)
-            ->select('id, account_name, account_type, currency_code, account_class')
+        return $this->db->table($this->table)
+            ->select('public_id, account_name, account_type, currency_code, account_class')
             ->orderBy('account_name', 'ASC')
             ->orderBy('id', 'ASC')
             ->get()
             ->getResultArray();
-
-        return array_map(static fn (array $row) => ['id' => (int) $row['id']] + $row, $rows);
     }
 }
