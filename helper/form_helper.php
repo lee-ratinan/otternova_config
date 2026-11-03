@@ -89,8 +89,8 @@
  * (JPEG where the browser cannot encode WebP) before they are sent. After a successful upload the page stays,
  * and the thumbnail shows the response's 'url' (or the uploaded file).
  * With urls.delete set, the form has a Delete button while an image is saved ('stored'): it posts the form's
- * hidden fields (e.g. used-for and the id field) to urls.delete, and on success the thumbnail shows
- * 'default_preview' and the button hides until the next upload. One image per form.
+ * hidden fields (e.g. used-for and the id field) to urls.delete, and on success the thumbnail shows the
+ * response's 'url' (or 'default_preview') and the button hides until the next upload. One image per form.
  *
  * The same `rules` strings are used on the client (JS) and by fb_server_validation() on the server.
  */
@@ -878,7 +878,7 @@ if (! function_exists('fb_file_row')) {
         return '<div class="mb-0' . (! empty($f['row_class']) ? ' ' . fb_esc($f['row_class'], 'attr') : '') . '" data-fb-row="' . fb_esc($f['name'], 'attr') . '">'
             . '<label class="form-label' . (! empty($f['rules_client']['required']) ? ' required' : '') . '" for="' . fb_esc($f['id'], 'attr') . '">' . fb_esc($f['label']) . '</label>'
             . '<div class="d-flex align-items-center gap-3">'
-            . '<div class="rounded-2 bg-light d-flex align-items-center justify-content-center" style="width: 64px; height: 64px;" data-fb-preview="' . fb_esc($f['name'], 'attr') . '">' . $img . '</div>'
+            . '<div class="rounded-2 d-flex align-items-center justify-content-center" style="width: 64px; height: 64px;" data-fb-preview="' . fb_esc($f['name'], 'attr') . '">' . $img . '</div>'
             . '<div class="flex-grow-1">' . fb_input($f) . fb_error_slot($f) . fb_help($f) . '</div>'
             . '</div></div>';
     }
@@ -1654,7 +1654,7 @@ if (! function_exists('fb_script')) {
         if (r.ok && cfg.upload) {
           // the page stays: the thumbnail falls back to the default image until the next upload
           notify('success', esc(r.data.message || cfg.messages.deleted));
-          fileFields().forEach(function (f) { previews[f.name] = f.defaultPreview; });
+          fileFields().forEach(function (f) { previews[f.name] = r.data.url || f.defaultPreview; });
           showDelete(false);
           form.reset();
           form.dispatchEvent(new CustomEvent('fb:deleted', { bubbles: true, detail: r.data }));
