@@ -19,7 +19,7 @@ done
 
 # otternova_api: models, languages, and list_helper only
 copy_dir Models    "$REPOS/otternova_api/root/app/Models"
-copy_dir Languages "$REPOS/otternova_api/root/app/Language"
+copy_dir Languages/en-US "$REPOS/otternova_api/root/app/Language/en-US"
 cp helper/list_helper.php "$REPOS/otternova_api/root/app/Helpers/list_helper.php"
 
 # otternova_www: list_helper only
