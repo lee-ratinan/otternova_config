@@ -30,7 +30,7 @@ if (!function_exists('avatarUrl')) {
     {
         $avatarPath = trim((string) $avatarPath);
         if ('' === $avatarPath) {
-            return base_url('assets/img/profile-img.webp');
+            return base_url('assets/img/profile-img.svg');
         }
         if (preg_match('#^https?://#i', $avatarPath)) {
             return $avatarPath;

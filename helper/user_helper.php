@@ -9,7 +9,7 @@ if (!function_exists('userAvatarUrl')) {
     function userAvatarUrl(?string $avatarPath): string
     {
         if ($avatarPath === null || trim($avatarPath) === '') {
-            return base_url('assets/img/profile-img.webp');
+            return base_url('assets/img/profile-img.svg');
         }
         return base_url(ltrim($avatarPath, '/'));
     }
