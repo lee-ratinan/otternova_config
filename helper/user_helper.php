@@ -2,16 +2,14 @@
 if (!function_exists('userAvatarUrl')) {
     /**
      * URL of a user's avatar, or the default avatar when none is set.
-     * Uploaded avatars are served relative to base_url() for now; change it here once their location is decided.
+     * The API saves uploaded and initials avatars as full URLs; see avatarUrl() in auth_helper.
      * @param string|null $avatarPath auth_master.avatar_path
      * @return string
      */
     function userAvatarUrl(?string $avatarPath): string
     {
-        if ($avatarPath === null || trim($avatarPath) === '') {
-            return base_url('assets/img/profile-img.svg');
-        }
-        return base_url(ltrim($avatarPath, '/'));
+        helper('auth');
+        return avatarUrl($avatarPath);
     }
 }
 if (!function_exists('userDisplayName')) {

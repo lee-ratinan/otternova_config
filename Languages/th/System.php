@@ -1,0 +1,33 @@
+<?php
+return [
+    'site-title' => 'OtterNova',
+    'page'       => [
+        'login'           => 'เข้าสู่ระบบ',
+        'create-account'  => 'สร้างบัญชี',
+        'forgot-password' => 'ลืมรหัสผ่าน',
+        'reset-password'  => 'ตั้งรหัสผ่านใหม่',
+        'dashboard'       => 'แดชบอร์ด',
+        'profile'         => 'โปรไฟล์',
+        'sign-out'        => 'ออกจากระบบ',
+        'notifications'   => 'การแจ้งเตือน',
+        'messages'        => 'ข้อความ',
+        'my-businesses'   => 'ธุรกิจของฉัน',
+        'search'          => 'ค้นหา',
+    ],
+    'header'     => [
+        'toggle-theme'           => 'สลับธีม',
+        'theme'                  => 'ธีม',
+        'toggle-fullscreen'      => 'สลับโหมดเต็มจอ',
+        'fullscreen'             => 'เต็มจอ',
+        'search-anything'        => 'ค้นหาทุกอย่าง',
+        'you-have-notifications' => 'คุณมีการแจ้งเตือนใหม่',
+        'mark-all-read'          => 'ทำเครื่องหมายว่าอ่านแล้วทั้งหมด',
+        'notifications-view-all' => 'ดูการแจ้งเตือนทั้งหมด',
+    ],
+    'footer'     => [
+        'copyright'      => 'สงวนลิขสิทธิ์',
+        'privacy-policy' => 'นโยบายความเป็นส่วนตัว',
+        'terms'          => 'ข้อกำหนดการให้บริการ',
+        'help'           => 'ช่วยเหลือ'
+    ]
+];

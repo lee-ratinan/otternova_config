@@ -348,7 +348,10 @@ if (! function_exists('fb_parse_rules')) {
                 case 'regex_match':
                     $m = [];
                     if (preg_match('#^(.)(.*)\1([a-z]*)$#s', (string) $p, $m)) {
-                        $o['regex'] = ['source' => $m[2], 'flags' => preg_replace('/[^gimsuy]/', '', $m[3])];
+                        $flags = preg_replace('/[^gimsuy]/', '', $m[3]);
+                        // PCRE writes code points as \x{1F600}; a JavaScript /u RegExp as \u{1F600}
+                        $source = str_contains($flags, 'u') ? preg_replace('/\\\\x\{([0-9A-Fa-f]+)\}/', '\\u{$1}', $m[2]) : $m[2];
+                        $o['regex'] = ['source' => $source, 'flags' => $flags];
                     }
                     break;
             }
