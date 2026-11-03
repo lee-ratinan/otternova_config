@@ -34,7 +34,7 @@
  *   ],
  *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel','upload'=>'Upload'],
  *   'messages' => ['saved'=>..., 'saveFailed'=>..., 'deleted'=>..., 'deleteFailed'=>..., 'confirmDelete'=>..., 'fixErrors'=>...,
- *                  'uploaded'=>..., 'uploadFailed'=>..., 'converting'=>..., 'convertFailed'=>...],
+ *                  'uploaded'=>..., 'uploadFailed'=>..., 'converting'=>..., 'convertFailed'=>..., 'confirmDeleteImage'=>...],
  *   'heic_decoder' => base_url('assets/vendor/heic2any/heic2any.min.js'),  // loaded only when a HEIC file is picked
  *   'values'   => ['name' => 'Foo', 'tags' => ['a','b'], 'is_active' => 1],   // saved values (edit/view)
  *   'fields'   => [ <field>, <field>, ... ],
@@ -78,6 +78,8 @@
  *   'max_size'    => 2097152,            // bytes, checked after any conversion (default 2MB)
  *   'max_size_label' => '2MB',           // how max_size reads in the error message
  *   'preview'     => 'https://.../avatar.webp',  // thumbnail shown beside the input ('' = empty box)
+ *   'stored'      => true,               // an image is saved now: upload forms with urls.delete show Delete
+ *   'default_preview' => 'https://.../default.webp',  // thumbnail once the image is deleted ('' = empty box)
  *   'help'        => 'JPG, PNG or WEBP. Max size 2MB',  // default for images
  * ]
  *
@@ -86,6 +88,9 @@
  * id field), and its submit button reads "Upload". HEIC/HEIF images are converted to WebP in the browser
  * (JPEG where the browser cannot encode WebP) before they are sent. After a successful upload the page stays,
  * and the thumbnail shows the response's 'url' (or the uploaded file).
+ * With urls.delete set, the form has a Delete button while an image is saved ('stored'): it posts the form's
+ * hidden fields (e.g. used-for and the id field) to urls.delete, and on success the thumbnail shows
+ * 'default_preview' and the button hides until the next upload. One image per form.
  *
  * The same `rules` strings are used on the client (JS) and by fb_server_validation() on the server.
  */
@@ -500,6 +505,7 @@ if (! function_exists('fb_defaults')) {
                 'uploadFailed'  => 'Could not upload. Please try again.',
                 'converting'    => 'Converting the image...',
                 'convertFailed' => 'Could not read this image. Please choose a JPG, PNG or WEBP file.',
+                'confirmDeleteImage' => 'Are you sure you want to delete this image? This cannot be undone.',
             ],
             'heic_decoder'  => function_exists('base_url') ? base_url('assets/vendor/heic2any/heic2any.min.js') : '',
             'values'        => [],
@@ -650,6 +656,8 @@ if (! function_exists('fb_field')) {
             $f['max_size_label'] = (string) ($f['max_size_label'] ?? round($f['max_size'] / 1048576, 1) . 'MB');
             $f['help']      = $f['help'] ?? ($image ? 'JPG, PNG or WEBP. Max size ' . $f['max_size_label'] : '');
             $f['preview']   = (string) ($f['preview'] ?? '');
+            $f['stored']    = ! empty($f['stored']);
+            $f['default_preview'] = (string) ($f['default_preview'] ?? '');
             $a['accept']    = $f['accept'] . ($f['heic'] ? ',.heic,.heif' : '');
         }
 
@@ -1023,8 +1031,12 @@ if (! function_exists('fb_buttons_edit')) {
         $form = fb_defaults($form);
         $l    = $form['labels'];
         $html = '<hr /><div class="row"><div class="col-6">'
-            . '<button type="reset" class="btn btn-outline-secondary ms-2"><i class="bi bi-arrow-counterclockwise"></i> ' . fb_esc($l['reset']) . '</button>'
-            . '</div><div class="col-6 text-end">';
+            . '<button type="reset" class="btn btn-outline-secondary ms-2"><i class="bi bi-arrow-counterclockwise"></i> ' . fb_esc($l['reset']) . '</button>';
+        if ($form['upload'] && $form['deletable']) {
+            $stored = (bool) array_filter(fb_fields($form, 'edit'), static fn ($f) => $f['type'] === 'file' && $f['stored']);
+            $html  .= '<button type="button" class="btn btn-outline-danger btn-delete ms-2' . ($stored ? '' : ' d-none') . '" data-fb-action="delete"><i class="bi bi-trash"></i> ' . fb_esc($l['delete']) . '</button>';
+        }
+        $html .= '</div><div class="col-6 text-end">';
         if ($form['mode'] === 'view') {
             $html .= '<button type="button" class="btn btn-outline-secondary me-2" data-fb-action="cancel">' . fb_esc($l['cancel']) . '</button>';
         }
@@ -1147,6 +1159,7 @@ if (! function_exists('fb_script')) {
                 'heic'         => $f['heic'],
                 'maxSize'      => $f['max_size'],
                 'maxSizeLabel' => $f['max_size_label'],
+                'defaultPreview' => $f['default_preview'],
             ] : []);
         }
 
@@ -1569,6 +1582,7 @@ if (! function_exists('fb_script')) {
           fileFields().forEach(function (f) {
             if (prepared[f.name]) { previews[f.name] = r.data.url || previews[f.name]; }
           });
+          showDelete(true);
           form.reset();
           form.dispatchEvent(new CustomEvent('fb:saved', { bubbles: true, detail: r.data }));
           if (r.data.redirect || cfg.urls.afterSave) {
@@ -1596,10 +1610,16 @@ if (! function_exists('fb_script')) {
     });
 
     // ---- 3. delete ---------------------------------------------------------------------
+    function showDelete(on) {
+      var btn = form.querySelector('[data-fb-action="delete"]');
+      if (btn) { btn.classList.toggle('d-none', !on); }
+    }
+
     async function confirmDelete() {
+      var question = cfg.upload ? cfg.messages.confirmDeleteImage : cfg.messages.confirmDelete;
       if (window.Swal && typeof window.Swal.fire === 'function') {
         var res = await window.Swal.fire({
-          title: cfg.messages.confirmDelete,
+          title: question,
           icon: 'warning',
           color: '#994202',
           customClass: {
@@ -1614,19 +1634,34 @@ if (! function_exists('fb_script')) {
         });
         return !!res.isConfirmed;
       }
-      return window.confirm(cfg.messages.confirmDelete);
+      return window.confirm(question);
     }
 
     async function doDelete() {
       if (busy || !cfg.urls.delete || !(await confirmDelete())) { return; }
       var body = new FormData();
-      body.append(cfg.idField, cfg.id);
-      if (cfg.csrf && csrfInput()) { body.append(cfg.csrf.name, csrfInput().value); }
+      if (cfg.upload) {
+        // the image is named by the form's hidden fields (used-for, the id field, ...) and the CSRF token among them
+        form.querySelectorAll('input[type="hidden"][name]').forEach(function (e) { body.set(e.name, e.value); });
+      } else {
+        body.append(cfg.idField, cfg.id);
+        if (cfg.csrf && csrfInput()) { body.append(cfg.csrf.name, csrfInput().value); }
+      }
       if (cfg.deleteMethod !== 'POST') { body.append('_method', cfg.deleteMethod); }
       setBusy(true);
       try {
         var r = await send(cfg.urls.delete, body);
-        if (r.ok) {
+        if (r.ok && cfg.upload) {
+          // the page stays: the thumbnail falls back to the default image until the next upload
+          notify('success', esc(r.data.message || cfg.messages.deleted));
+          fileFields().forEach(function (f) { previews[f.name] = f.defaultPreview; });
+          showDelete(false);
+          form.reset();
+          form.dispatchEvent(new CustomEvent('fb:deleted', { bubbles: true, detail: r.data }));
+          if (r.data.redirect || cfg.urls.afterDelete) {
+            setTimeout(function () { window.location.href = r.data.redirect || cfg.urls.afterDelete; }, 800);
+          }
+        } else if (r.ok) {
           notify('success', esc(r.data.message || cfg.messages.deleted));
           form.dispatchEvent(new CustomEvent('fb:deleted', { bubbles: true, detail: r.data }));
           var to = r.data.redirect || cfg.urls.afterDelete || cfg.urls.list;
