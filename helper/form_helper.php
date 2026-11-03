@@ -23,7 +23,7 @@
  *   'csrf'      => true,                 // true = auto CI4 token, false = disable
  *   'id_prefix' => '',                   // prepended to auto-generated field ids
  *   'layout'    => ['label_col' => 4],   // label column width (Bootstrap 1-11); control = 12 - label_col
- *   'locale'    => LOCALE,               // view mode: date fields go through formatDate($value, locale)
+ *   'locale'    => LOCALE,               // view mode: date fields go through formatDate($value, locale); default = request locale
  *   'urls' => [
  *       'submit' => site_url('products/save'),     // create/edit POST target
  *       'delete' => site_url('products/delete'),
@@ -32,7 +32,8 @@
  *       'after_save'   => '',            // redirect after save ('' = reload; create mode = reset form)
  *       'after_delete' => '',            // redirect after delete (falls back to urls.list)
  *   ],
- *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel','upload'=>'Upload'],
+ *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel','upload'=>'Upload','keep'=>'Keep It'],
+ *                 // labels, messages and the browser's validation messages default to Language/{locale}/Form.php
  *   'messages' => ['saved'=>..., 'saveFailed'=>..., 'deleted'=>..., 'deleteFailed'=>..., 'confirmDelete'=>..., 'fixErrors'=>...,
  *                  'uploaded'=>..., 'uploadFailed'=>..., 'converting'=>..., 'convertFailed'=>..., 'confirmDeleteImage'=>...],
  *   'heic_decoder' => base_url('assets/vendor/heic2any/heic2any.min.js'),  // loaded only when a HEIC file is picked
@@ -80,7 +81,7 @@
  *   'preview'     => 'https://.../avatar.webp',  // thumbnail shown beside the input ('' = empty box)
  *   'stored'      => true,               // an image is saved now: upload forms with urls.delete show Delete
  *   'default_preview' => 'https://.../default.webp',  // thumbnail once the image is deleted ('' = empty box)
- *   'help'        => 'JPG, PNG or WEBP. Max size 2MB',  // default for images
+ *   'help'        => 'JPG, PNG or WEBP. Max size 2MB',  // default for images (Form.image-hint)
  * ]
  *
  * UPLOAD FORMS: a form with a 'file' field is a stand-alone upload form. It always opens in edit mode
@@ -494,21 +495,29 @@ if (! function_exists('fb_defaults')) {
             'csrf'          => true,
             'id_prefix'     => '',
             'layout'        => ['label_col' => 4],
-            'locale'        => null,
+            'locale'        => service('request')->getLocale(),
             'urls'          => ['submit' => '', 'delete' => '', 'edit' => '#', 'list' => '', 'after_save' => '', 'after_delete' => ''],
-            'labels'        => ['reset' => 'Reset', 'save' => 'Save Change', 'edit' => 'Edit', 'delete' => 'Delete', 'cancel' => 'Cancel', 'upload' => 'Upload'],
+            'labels'        => [
+                'reset'  => lang('Form.button.reset'),
+                'save'   => lang('Form.button.save'),
+                'edit'   => lang('Form.button.edit'),
+                'delete' => lang('Form.button.delete'),
+                'cancel' => lang('Form.button.cancel'),
+                'upload' => lang('Form.button.upload'),
+                'keep'   => lang('Form.button.keep'),
+            ],
             'messages'      => [
-                'saved'         => 'Saved successfully.',
-                'saveFailed'    => 'Could not save. Please try again.',
-                'deleted'       => 'Deleted successfully.',
-                'deleteFailed'  => 'Could not delete. Please try again.',
-                'confirmDelete' => 'Are you sure you want to delete this record? This cannot be undone.',
-                'fixErrors'     => 'Please correct the following:',
-                'uploaded'      => 'Uploaded successfully.',
-                'uploadFailed'  => 'Could not upload. Please try again.',
-                'converting'    => 'Converting the image...',
-                'convertFailed' => 'Could not read this image. Please choose a JPG, PNG or WEBP file.',
-                'confirmDeleteImage' => 'Are you sure you want to delete this image? This cannot be undone.',
+                'saved'         => lang('Form.message.saved'),
+                'saveFailed'    => lang('Form.message.save-failed'),
+                'deleted'       => lang('Form.message.deleted'),
+                'deleteFailed'  => lang('Form.message.delete-failed'),
+                'confirmDelete' => lang('Form.message.confirm-delete'),
+                'fixErrors'     => lang('Form.message.fix-errors'),
+                'uploaded'      => lang('Form.message.uploaded'),
+                'uploadFailed'  => lang('Form.message.upload-failed'),
+                'converting'    => lang('Form.message.converting'),
+                'convertFailed' => lang('Form.message.convert-failed'),
+                'confirmDeleteImage' => lang('Form.message.confirm-delete-image'),
             ],
             'heic_decoder'  => function_exists('base_url') ? base_url('assets/vendor/heic2any/heic2any.min.js') : '',
             'values'        => [],
@@ -657,7 +666,7 @@ if (! function_exists('fb_field')) {
             $f['heic']      = $image; // HEIC/HEIF is converted in the browser, so the picker offers it too
             $f['max_size']  = (int) ($f['max_size'] ?? 2 * 1024 * 1024);
             $f['max_size_label'] = (string) ($f['max_size_label'] ?? round($f['max_size'] / 1048576, 1) . 'MB');
-            $f['help']      = $f['help'] ?? ($image ? 'JPG, PNG or WEBP. Max size ' . $f['max_size_label'] : '');
+            $f['help']      = $f['help'] ?? ($image ? lang('Form.image-hint', [$f['max_size_label']]) : '');
             $f['preview']   = (string) ($f['preview'] ?? '');
             $f['stored']    = ! empty($f['stored']);
             $f['default_preview'] = (string) ($f['default_preview'] ?? '');
@@ -735,7 +744,7 @@ if (! function_exists('fb_select')) {
     function fb_select(array $f): string
     {
         $attrs = fb_control_attrs($f, 'form-select');
-        $ph    = array_key_exists('placeholder', $attrs) ? $attrs['placeholder'] : 'Select...';
+        $ph    = array_key_exists('placeholder', $attrs) ? $attrs['placeholder'] : lang('Form.select');
         unset($attrs['placeholder']);
         if ($f['multiple']) {
             $attrs['multiple'] = true;
@@ -848,7 +857,7 @@ if (! function_exists('fb_label')) {
             $html .= ' <span class="badge ' . fb_esc($b['class'] ?? 'bg-primary', 'attr') . ' ms-1">' . fb_esc($b['text'] ?? '') . '</span>';
         }
         if (! empty($f['optional'])) {
-            $html .= ' <span class="form-label-optional">(optional)</span>';
+            $html .= ' <span class="form-label-optional">' . fb_esc(lang('Form.optional')) . '</span>';
         }
 
         return $html . '</label>';
@@ -927,8 +936,8 @@ if (! function_exists('fb_view_value')) {
 
         if ($f['single']) {
             $labels = (array) ($f['view_labels'] ?? []);
-            $on     = $labels['on'] ?? 'Yes';
-            $off    = $labels['off'] ?? 'No';
+            $on     = $labels['on'] ?? lang('Form.yes');
+            $off    = $labels['off'] ?? lang('Form.no');
 
             return $f['checked']
                 ? '<span class="badge bg-success">' . fb_esc($on) . '</span>'
@@ -1182,6 +1191,8 @@ if (! function_exists('fb_script')) {
             ],
             'csrf'         => $form['csrf'] ? ['name' => $form['csrf']['name'], 'header' => $form['csrf']['header']] : null,
             'messages'     => $form['messages'],
+            'labels'       => ['delete' => $form['labels']['delete'], 'keep' => $form['labels']['keep']],
+            'validation'   => lang('Form.validation'),
             'upload'       => $form['upload'],
             'heicDecoder'  => $form['heic_decoder'],
             'fields'       => $fields,
@@ -1194,33 +1205,7 @@ if (! function_exists('fb_script')) {
   'use strict';
 
   var DATE_TYPES = ['date', 'datetime-local', 'time', 'month', 'week'];
-  var DEFAULT_MESSAGES = {
-    required: '{label} is required.',
-    minlength: '{label} must be at least {param} characters.',
-    maxlength: '{label} cannot exceed {param} characters.',
-    min: '{label} must be at least {param}.',
-    max: '{label} must be at most {param}.',
-    gt: '{label} must be greater than {param}.',
-    lt: '{label} must be less than {param}.',
-    step: '{label} must be a multiple of {param}.',
-    numeric: '{label} must be a number.',
-    integer: '{label} must be a whole number.',
-    decimal: '{label} must be a decimal number.',
-    natural: '{label} must be a non-negative whole number.',
-    natural_nz: '{label} must be a positive whole number.',
-    email: '{label} must be a valid email address.',
-    url: '{label} must be a valid URL.',
-    date: '{label} must be a valid date.',
-    alpha: '{label} may only contain letters.',
-    alpha_numeric: '{label} may only contain letters and numbers.',
-    alpha_dash: '{label} may only contain letters, numbers, dashes and underscores.',
-    pattern: '{label} format is invalid.',
-    regex: '{label} format is invalid.',
-    in_list: '{label} has an invalid selection.',
-    matches: '{label} does not match {param}.',
-    file_type: '{label} must be a JPG, PNG or WEBP image.',
-    file_size: '{label} must be {param} or smaller.'
-  };
+  var DEFAULT_MESSAGES = cfg.validation || {};
 
   // ---- HEIC / HEIF: converted to WebP before upload, as the server only takes JPEG, PNG and WebP ----
   var HEIC_MAX_SIDE = 2048; // phone photos are far larger than any use here; this keeps the result small
@@ -1341,7 +1326,7 @@ if (! function_exists('fb_script')) {
 
     // ---- validation --------------------------------------------------------------------
     function msg(f, rule, param) {
-      var t = (f.messages && f.messages[rule]) || DEFAULT_MESSAGES[rule] || '{label} is invalid.';
+      var t = (f.messages && f.messages[rule]) || DEFAULT_MESSAGES[rule] || DEFAULT_MESSAGES.invalid || '{label} is invalid.';
       return t.replace(/\{label\}/g, function () { return f.label; })
               .replace(/\{param\}/g, function () { return param === undefined ? '' : param; });
     }
@@ -1632,8 +1617,8 @@ if (! function_exists('fb_script')) {
           },
           showCancelButton: true,
           showConfirmButton: true,
-          cancelButtonText: 'Keep It',
-          confirmButtonText: 'Delete',
+          cancelButtonText: cfg.labels.keep,
+          confirmButtonText: cfg.labels.delete,
         });
         return !!res.isConfirmed;
       }

@@ -127,7 +127,7 @@ if (!function_exists('formatDate')) {
                 'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
                 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
             ];
-            $date = date('j', $time) . ' ' . $monthNames[$month - 1] . ' ' . (date('Y', $time) + 543);
+            return date('j', $time) . ' ' . $monthNames[$month - 1] . ' ' . (date('Y', $time) + 543);
         }
         return date('M j, Y', $time);
     }
