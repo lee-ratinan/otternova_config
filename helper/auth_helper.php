@@ -47,6 +47,32 @@ if (!function_exists('currentBusinessName')) {
     }
 }
 
+if (!function_exists('currentBusinessSlug')) {
+    /**
+     * business_master.business_slug of the session business, the key the API knows it by
+     * @return string|null null when no business is selected
+     */
+    function currentBusinessSlug(): ?string
+    {
+        $business = session('business');
+        $slug     = is_array($business) ? trim((string) ($business['business']['business_slug'] ?? '')) : '';
+        return '' === $slug ? null : $slug;
+    }
+}
+
+if (!function_exists('canManageBusiness')) {
+    /**
+     * Whether the signed-in client may manage the session business and its stores: its owners (O) and managers (M).
+     * The API checks the role again on every call; this only decides what the client app shows.
+     * @return bool
+     */
+    function canManageBusiness(): bool
+    {
+        $business = session('business');
+        return is_array($business) && in_array((string) ($business['client_role'] ?? ''), ['O', 'M'], true);
+    }
+}
+
 if (!function_exists('avatarUrl')) {
     /**
      * URL of an avatar from auth_master.avatar_path; the default avatar when none is set.
