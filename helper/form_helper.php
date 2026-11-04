@@ -31,6 +31,7 @@
  *       'list'   => site_url('products'),
  *       'after_save'   => '',            // redirect after save ('' = reload; create mode = reset form)
  *       'after_delete' => '',            // redirect after delete (falls back to urls.list)
+ *       'telephone_format' => base_url('admin/api/telephone-format-e164'),  // what 'tel' fields format through
  *   ],
  *   'labels'   => ['reset'=>'Reset','save'=>'Save Change','edit'=>'Edit','delete'=>'Delete','cancel'=>'Cancel','upload'=>'Upload','keep'=>'Keep It'],
  *                 // labels, messages and the browser's validation messages default to Language/{locale}/Form.php
@@ -64,6 +65,8 @@
  *   'options'     => [1 => 'Electronics', 2 => 'Books']      // value => label
  *                 or [['value'=>1,'label'=>'Electronics','disabled'=>true], ...]
  *   'multiple'    => true,               // select multiple (checkbox with options is always multi-value)
+ *   'country'     => 'TH',               // tel only: country picked at first when the value has none
+ *
  *   'inline'      => true,               // radio/checkbox groups on one line
  *   'text'        => 'Enable',           // text beside a single checkbox / switch
  *   'checked_value' => '1', 'off_value' => '0',     // single checkbox / switch submitted values
@@ -83,6 +86,11 @@
  *   'default_preview' => 'https://.../default.webp',  // thumbnail once the image is deleted ('' = empty box)
  *   'help'        => 'JPG, PNG or WEBP. Max size 2MB',  // default for images (Form.image-hint)
  * ]
+ *
+ * TELEPHONE FIELDS ('tel'): a country dropdown (listSupportedTelephoneCountryCodes()) beside the number as the user
+ * dials it. Once both are filled in, urls.telephone_format turns them into E.164 (+66812345678), which goes into a
+ * hidden input of the field's name: that is the value submitted and saved. A saved E.164 value is split back into
+ * the country and the number (splitPhoneNumber()) when the form opens.
  *
  * UPLOAD FORMS: a form with a 'file' field is a stand-alone upload form. It always opens in edit mode
  * (no view pane), is sent as multipart/form-data with its hidden fields (e.g. used-for, image-name and the
@@ -496,7 +504,8 @@ if (! function_exists('fb_defaults')) {
             'id_prefix'     => '',
             'layout'        => ['label_col' => 4],
             'locale'        => service('request')->getLocale(),
-            'urls'          => ['submit' => '', 'delete' => '', 'edit' => '#', 'list' => '', 'after_save' => '', 'after_delete' => ''],
+            'urls'          => ['submit' => '', 'delete' => '', 'edit' => '#', 'list' => '', 'after_save' => '', 'after_delete' => '',
+                                'telephone_format' => function_exists('base_url') ? base_url('admin/api/telephone-format-e164') : ''],
             'labels'        => [
                 'reset'  => lang('Form.button.reset'),
                 'save'   => lang('Form.button.save'),
@@ -673,6 +682,16 @@ if (! function_exists('fb_field')) {
             $a['accept']    = $f['accept'] . ($f['heic'] ? ',.heic,.heif' : '');
         }
 
+        if ($type === 'tel' && $pane !== 'view') {
+            // the saved E.164 number, split into the dropdown's country and the number as dialled there
+            [$country, $local] = function_exists('splitPhoneNumber') ? splitPhoneNumber(fb_str($val)) : ['', fb_str($val)];
+            $codes            = function_exists('listSupportedTelephoneCountryCodes') ? listSupportedTelephoneCountryCodes() : [];
+            $f['tel_codes']   = $codes;
+            $f['tel_country'] = isset($codes[$country]) ? $country : (fb_str($val) === '' ? strtoupper((string) ($f['country'] ?? '')) : '');
+            $f['tel_local']   = $local;
+            unset($rules['minlength'], $rules['maxlength'], $a['minlength']); // they are about the E.164 value, checked by the server
+        }
+
         $f['attrs']        = $a;
         $f['rules_client'] = $rules;
 
@@ -764,6 +783,43 @@ if (! function_exists('fb_select')) {
     }
 }
 
+if (! function_exists('fb_tel')) {
+    /**
+     * A telephone field: the country dropdown and the number as the user dials it, neither submitted, plus the
+     * hidden input of the field's name holding the E.164 number the script fills in (see TELEPHONE FIELDS)
+     */
+    function fb_tel(array $f): string
+    {
+        $a     = $f['attrs'];
+        $state = array_intersect_key($a, array_flip(['disabled', 'readonly']));
+        $data  = ['data-fb-tel' => $f['name']];
+
+        $select = ['id' => $f['id'] . '__country', 'class' => 'form-select flex-grow-0 w-auto', 'aria-label' => lang('Form.telephone-country'),
+            'data-fb-tel-part' => 'country'] + $data + $state;
+        // a readonly select can still be changed, so it is disabled instead (it is not submitted either way)
+        if (! empty($state['readonly'])) {
+            $select['disabled'] = true;
+        }
+        $html = '<div class="input-group"><select' . fb_attrs($select) . '>'
+            . '<option value=""' . ($f['tel_country'] === '' ? ' selected' : '') . '>' . fb_esc(lang('Form.select')) . '</option>';
+        foreach ($f['tel_codes'] as $country => $dial) {
+            $html .= '<option value="' . fb_esc($country, 'attr') . '"' . ($country === $f['tel_country'] ? ' selected' : '') . '>'
+                . fb_esc($country . ' ' . $dial) . '</option>';
+        }
+        $html .= '</select>';
+
+        $extra = $a['class'] ?? '';
+        unset($a['class'], $a['required'], $a['maxlength']);
+        $local = ['type' => 'tel', 'id' => $f['id'], 'class' => trim('form-control ' . (is_array($extra) ? implode(' ', $extra) : $extra)),
+            'value' => $f['tel_local'], 'autocomplete' => 'tel-national', 'data-fb-tel-part' => 'local'] + $data + $a;
+        $html .= '<input' . fb_attrs($local) . '></div>';
+
+        $value = fb_input_value($f);
+        return $html . '<input' . fb_attrs(['type' => 'hidden', 'id' => $f['id'] . '__e164', 'name' => $f['input_name'], 'value' => $value,
+            'data-fb-tel-initial' => $value, 'data-fb-tel-part' => 'value'] + $data + array_intersect_key($state, ['disabled' => true])) . '>';
+    }
+}
+
 if (! function_exists('fb_choice_group')) {
     /** A group of radios or checkboxes. Submitted value = option value, shown text = option label. */
     function fb_choice_group(array $f): string
@@ -837,6 +893,8 @@ if (! function_exists('fb_control')) {
                 return $f['group'] ? fb_choice_group($f) : ($f['single'] ? fb_single_check($f) : fb_input($f));
             case 'switch':
                 return fb_single_check($f);
+            case 'tel':
+                return fb_tel($f);
             default:
                 return fb_input($f);
         }
@@ -1188,6 +1246,7 @@ if (! function_exists('fb_script')) {
                 'list'        => $form['urls']['list'],
                 'afterSave'   => $form['urls']['after_save'],
                 'afterDelete' => $form['urls']['after_delete'],
+                'telephoneFormat' => $form['urls']['telephone_format'],
             ],
             'csrf'         => $form['csrf'] ? ['name' => $form['csrf']['name'], 'header' => $form['csrf']['header']] : null,
             'messages'     => $form['messages'],
@@ -1305,6 +1364,66 @@ if (! function_exists('fb_script')) {
       return fields[target.name.replace(/\[\]$/, '')] || null;
     }
 
+    // ---- telephone fields: country + number -> the hidden E.164 value -----------------------
+    function telParts(f) {
+      var part = function (p) { return form.querySelector('[data-fb-tel="' + CSS.escape(f.name) + '"][data-fb-tel-part="' + p + '"]'); };
+      return { country: part('country'), local: part('local'), value: part('value') };
+    }
+
+    function telFields() {
+      return cfg.fields.filter(function (f) { return f.type === 'tel'; });
+    }
+
+    // what the hidden value was last worked out from, so it is only asked for again when either part changes
+    var telFormatted = {};
+    var telSeq = {};
+
+    function telKey(t) { return t.country.value + '|' + t.local.value.trim(); }
+
+    async function formatTel(f) {
+      var t = telParts(f);
+      if (!t.local || !t.value || t.local.disabled) { return; }
+      var key = telKey(t);
+      if (telFormatted[f.name] === key) { return; }
+      var seq = telSeq[f.name] = (telSeq[f.name] || 0) + 1;
+      var local = t.local.value.trim();
+      var e164 = '';
+      if (local !== '' && t.country.value !== '') {
+        var body = new FormData();
+        body.set('country-code', t.country.value);
+        body.set('telephone-number', local);
+        try {
+          var r = await send(cfg.urls.telephoneFormat, body);
+          if (r.ok && r.data.data && r.data.data.e164) { e164 = r.data.data.e164; }
+        } catch (err) { e164 = ''; }
+      }
+      if (seq !== telSeq[f.name]) { return; } // a newer change is on its way
+      t.value.value = e164;
+      telFormatted[f.name] = key;
+    }
+
+    function telStale() {
+      telFields().forEach(function (f) {
+        var t = telParts(f);
+        if (t.local && !preparing[f.name] && telFormatted[f.name] !== telKey(t)) {
+          preparing[f.name] = formatTel(f).finally(function () { delete preparing[f.name]; });
+        }
+      });
+    }
+
+    // the saved number is already E.164: no need to ask for it until a part changes
+    telFields().forEach(function (f) {
+      var t = telParts(f);
+      if (t.local && t.value && t.value.value !== '') { telFormatted[f.name] = telKey(t); }
+    });
+
+    // the controls the user sees (and that turn red); for a telephone field not its hidden input
+    function uiEls(f) {
+      if (f.type !== 'tel') { return els(f); }
+      var t = telParts(f);
+      return [t.country, t.local].filter(Boolean);
+    }
+
     // ---- reading values ----------------------------------------------------------------
     function getValue(f) {
       var list = els(f);
@@ -1336,6 +1455,13 @@ if (! function_exists('fb_script')) {
       if (!list.length || list[0].disabled) { return ''; }
 
       var r = f.rules || {};
+      if (f.type === 'tel') {
+        var t = telParts(f);
+        if (!t.local || t.local.disabled) { return ''; }
+        if (t.local.value.trim() === '') { return r.required ? msg(f, 'required') : ''; }
+        if (!t.country.value) { return msg(f, 'phone_country'); }
+        return t.value.value === '' ? msg(f, 'phone') : '';
+      }
       var v = getValue(f);
       var multi = Array.isArray(v);
       var empty = multi ? v.length === 0 : String(v).trim() === '';
@@ -1401,7 +1527,7 @@ if (! function_exists('fb_script')) {
     }
 
     function showError(f, text) {
-      els(f).forEach(function (e) { e.classList.toggle('is-invalid', !!text); });
+      uiEls(f).forEach(function (e) { e.classList.toggle('is-invalid', !!text); });
       var slot = form.querySelector('[data-fb-error="' + CSS.escape(f.name) + '"]');
       if (slot) {
         slot.textContent = text || '';
@@ -1528,6 +1654,17 @@ if (! function_exists('fb_script')) {
       showError(f, m);
       if (m) { notify('error', esc(m)); }
     });
+    // a telephone part changed: work out the E.164 value, then check it
+    form.addEventListener('change', async function (e) {
+      var name = e.target && e.target.getAttribute && e.target.getAttribute('data-fb-tel');
+      var f = name ? fields[name] : null;
+      if (!f || mode !== 'edit' || e.target.getAttribute('data-fb-tel-part') === 'value') { return; }
+      var job = preparing[f.name] = formatTel(f);
+      try { await job; } finally { if (preparing[f.name] === job) { delete preparing[f.name]; } }
+      var m = validateField(f);
+      showError(f, m);
+      if (m) { notify('error', esc(m)); }
+    });
     // clear the red state as soon as the user fixes the value (silent)
     form.addEventListener('input', function (e) {
       var f = fieldOf(e.target);
@@ -1539,7 +1676,8 @@ if (! function_exists('fb_script')) {
       e.preventDefault();
       if (busy) { return; }
 
-      // a HEIC conversion still running is waited for, so the converted file is the one sent
+      // a HEIC conversion or a telephone number still being formatted is waited for, so the result is what is sent
+      telStale();
       try { await Promise.all(Object.keys(preparing).map(function (k) { return preparing[k]; })); } catch (err) { return; }
       var errors = validateAll();
       if (errors.length) {
@@ -1678,6 +1816,16 @@ if (! function_exists('fb_script')) {
     // ---- 5. reset: restore the original values (native reset uses the rendered defaults) ----
     form.addEventListener('reset', function () {
       fileFields().forEach(function (f) { delete prepared[f.name]; setPreview(f, previews[f.name]); });
+      // a hidden input keeps what the script set, so the telephone values are put back by hand
+      setTimeout(function () {
+        telFields().forEach(function (f) {
+          var t = telParts(f);
+          if (!t.value) { return; }
+          t.value.value = t.value.getAttribute('data-fb-tel-initial') || '';
+          telSeq[f.name] = (telSeq[f.name] || 0) + 1;
+          if (t.value.value !== '' && t.local) { telFormatted[f.name] = telKey(t); } else { delete telFormatted[f.name]; }
+        });
+      }, 0);
       setTimeout(clearErrors, 0);
     });
 

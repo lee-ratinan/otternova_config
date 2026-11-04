@@ -11,6 +11,7 @@ return [
     ],
     'optional'   => '(ไม่บังคับ)',
     'select'     => 'เลือก...',
+    'telephone-country' => 'รหัสโทรศัพท์ประเทศ',
     'yes'        => 'ใช่',
     'no'         => 'ไม่ใช่',
     'image-hint' => 'JPG, PNG หรือ WEBP ขนาดไม่เกิน {0}',
@@ -55,5 +56,7 @@ return [
         'file_type'     => '{label}ต้องเป็นรูปภาพ JPG, PNG หรือ WEBP',
         'file_size'     => '{label}ต้องมีขนาดไม่เกิน {param}',
         'invalid'       => '{label}ไม่ถูกต้อง',
+        'phone'         => '{label}ไม่ใช่หมายเลขโทรศัพท์ที่ถูกต้องของประเทศที่เลือก',
+        'phone_country' => 'กรุณาเลือกประเทศของ{label}',
     ],
 ];

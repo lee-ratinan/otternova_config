@@ -55,10 +55,11 @@ if (!function_exists('formatPhoneNumberStandard')) {
      * @param string $countryCode ISO 3166-1 alpha-2 code, i.e. TH
      * @return string|false
      */
-    function formatPhoneNumberStandard(string $phoneNumber, string $countryCode): string
+    function formatPhoneNumberStandard(string $phoneNumber, string $countryCode): string|false
     {
-        $phoneUtil = PhoneNumberUtil::getInstance();
-        $countries = listSupportedCountries();
+        $phoneUtil   = PhoneNumberUtil::getInstance();
+        $countries   = listSupportedCountries();
+        $countryCode = strtoupper($countryCode);
         if (!isset($countries[$countryCode])) {
             // Not supported country code
             log_message('debug', 'Not supported country code: ' . $countryCode);
@@ -75,6 +76,34 @@ if (!function_exists('formatPhoneNumberStandard')) {
         }
         // Return false if parsing fails
         return false;
+    }
+}
+
+if (!function_exists('splitPhoneNumber')) {
+    /**
+     * Split an E.164 number into its country (ISO 3166-1 alpha-2) and the number as dialled within that country,
+     * i.e. +66812345678 -> ['TH', '0812345678'], for showing a saved number in a country + number input
+     * @param string|null $e164Number
+     * @return array{0: string, 1: string} ['', ''] when empty; ['', the input] when it cannot be read
+     */
+    function splitPhoneNumber(?string $e164Number): array
+    {
+        $e164Number = trim((string) $e164Number);
+        if ($e164Number === '') {
+            return ['', ''];
+        }
+        $phoneUtil = PhoneNumberUtil::getInstance();
+        try {
+            $numberProto = $phoneUtil->parse($e164Number, null);
+            $region      = (string) $phoneUtil->getRegionCodeForNumber($numberProto);
+            if ($region !== '' && $region !== 'ZZ') {
+                $national = $phoneUtil->format($numberProto, PhoneNumberFormat::NATIONAL);
+                return [$region, preg_replace('/[^0-9]/', '', $national)];
+            }
+        } catch (NumberParseException $e) {
+            log_message('debug', 'Phone parsing failed: ' . $e->getMessage());
+        }
+        return ['', $e164Number];
     }
 }
 

@@ -19,6 +19,20 @@ if (!function_exists('hasActiveSession')) {
     }
 }
 
+if (!function_exists('needsBusiness')) {
+    /**
+     * Whether the signed-in client is active in no business yet, so has to create one before anything else.
+     * The session keeps 'business' from sign-in (null when there is none); a session from before it was kept
+     * has no 'business' at all, and is not held back.
+     * @return bool
+     */
+    function needsBusiness(): bool
+    {
+        $data = session()->get();
+        return is_array($data) && array_key_exists('business', $data) && empty($data['business']);
+    }
+}
+
 if (!function_exists('avatarUrl')) {
     /**
      * URL of an avatar from auth_master.avatar_path; the default avatar when none is set.

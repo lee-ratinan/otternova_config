@@ -11,6 +11,7 @@ return [
         'sign-out'        => 'ออกจากระบบ',
         'notifications'   => 'การแจ้งเตือน',
         'messages'        => 'ข้อความ',
+        'create-business' => 'สร้างธุรกิจ',
         'my-businesses'   => 'ธุรกิจของฉัน',
         'search'          => 'ค้นหา',
     ],
