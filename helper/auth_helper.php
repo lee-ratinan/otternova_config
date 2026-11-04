@@ -33,6 +33,20 @@ if (!function_exists('needsBusiness')) {
     }
 }
 
+if (!function_exists('currentBusinessName')) {
+    /**
+     * business_master.business_name of the business the signed-in client is viewing: the sign-in business kept
+     * in the session (a client views one business at a time).
+     * @return string|null null when no business is selected
+     */
+    function currentBusinessName(): ?string
+    {
+        $business = session('business');
+        $name     = is_array($business) ? trim((string) ($business['business']['business_name'] ?? '')) : '';
+        return '' === $name ? null : $name;
+    }
+}
+
 if (!function_exists('avatarUrl')) {
     /**
      * URL of an avatar from auth_master.avatar_path; the default avatar when none is set.
