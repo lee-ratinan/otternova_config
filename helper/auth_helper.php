@@ -73,6 +73,19 @@ if (!function_exists('canManageBusiness')) {
     }
 }
 
+if (!function_exists('isBusinessOwner')) {
+    /**
+     * Whether the signed-in client is an owner (O) of the session business, who alone may manage its subscription
+     * (admin/plans). The API checks the role again on every call; this only decides what the client app shows.
+     * @return bool
+     */
+    function isBusinessOwner(): bool
+    {
+        $business = session('business');
+        return is_array($business) && 'O' === (string) ($business['client_role'] ?? '');
+    }
+}
+
 if (!function_exists('avatarUrl')) {
     /**
      * URL of an avatar from auth_master.avatar_path; the default avatar when none is set.

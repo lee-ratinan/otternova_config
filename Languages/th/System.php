@@ -16,6 +16,7 @@ return [
         'search'                => 'ค้นหา',
         'business'              => 'ธุรกิจ',
         'stores'                => 'ร้านค้า',
+        'plans'                 => 'แผน',
         'employees'             => 'พนักงาน',
         'products-and-services' => 'สินค้าและบริการ',
         'sales'                 => 'การขาย',
