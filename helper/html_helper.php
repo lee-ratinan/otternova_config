@@ -4,6 +4,38 @@ use libphonenumber\PhoneNumberUtil;
 use libphonenumber\PhoneNumberFormat;
 use libphonenumber\NumberParseException;
 
+if (!function_exists('planName')) {
+    /**
+     * A plan's name in the UI language (BusinessPlans.plan-names), or its code when it has none
+     * @param string $code plan_master.plan_code
+     * @return string
+     */
+    function planName(string $code): string
+    {
+        $key  = 'BusinessPlans.plan-names.' . $code;
+        $name = lang($key);
+        return $name === $key ? ucfirst($code) : $name;
+    }
+}
+
+if (!function_exists('formatMoney')) {
+    /**
+     * An amount from the API ("299.00") in its currency: as formatCurrency() writes it when it knows the currency,
+     * else "EUR 299.00"; '' when it is not a number
+     * @param mixed  $amount
+     * @param string $currencyCode
+     * @return string
+     */
+    function formatMoney(mixed $amount, string $currencyCode): string
+    {
+        if (null === $amount || ! is_numeric($amount)) {
+            return '';
+        }
+        $text = formatCurrency((float) $amount, $currencyCode);
+        return str_starts_with($text, '[') ? trim($currencyCode . ' ' . number_format((float) $amount, 2)) : $text;
+    }
+}
+
 if (!function_exists('formatCurrency')) {
     /**
      * Format amount in the target currency
@@ -159,6 +191,60 @@ if (!function_exists('formatDate')) {
             return date('j', $time) . ' ' . $monthNames[$month - 1] . ' ' . (date('Y', $time) + 543);
         }
         return date('M j, Y', $time);
+    }
+}
+
+if (!function_exists('formatTime')) {
+    /**
+     * Format date according to the locale
+     * @param $time (accepts only HH:MM)
+     * @param $locale
+     * @return false|string
+     */
+    function formatTime($time, $locale): false|string
+    {
+        $locale = match ($locale) {
+            'th' => 'th_TH',
+            default => 'en_US',
+        };
+        // dummy date
+        $dt   = '2026-01-01 ' . $time . ':00';
+        $time = strtotime($dt);
+        if (false === $time) {
+            return $time;
+        }
+        if ('th_TH' == $locale) {
+            return date('H:i', $time) . ' น.';
+        }
+        return date('g:i a', $time);
+    }
+}
+
+if (!function_exists('formatMinutes')) {
+    /**
+     * A length in minutes as hours and minutes, leaving out a part that is zero:
+     * 90 => '1h 30m', 120 => '2h', 45 => '45m' (th: '1 ชม. 30 นาที', '2 ชม.', '45 นาที')
+     * @param int|string|null $minutes
+     * @param string|null     $locale
+     * @return string '' when $minutes is empty or not a number
+     */
+    function formatMinutes(int|string|null $minutes, ?string $locale): string
+    {
+        if (null === $minutes || !is_numeric($minutes)) {
+            return '';
+        }
+        $minutes = max(0, (int) $minutes);
+        $hours   = intdiv($minutes, 60);
+        $minutes %= 60;
+        [$h, $m] = 'th' === $locale ? ['%d ชม.', '%d นาที'] : ['%dh', '%dm'];
+        $parts = [];
+        if ($hours > 0) {
+            $parts[] = sprintf($h, $hours);
+        }
+        if ($minutes > 0 || 0 === $hours) {
+            $parts[] = sprintf($m, $minutes);
+        }
+        return implode(' ', $parts);
     }
 }
 
